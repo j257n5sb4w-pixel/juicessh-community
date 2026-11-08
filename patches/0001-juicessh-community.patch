@@ -1,6 +1,6 @@
-diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
+diff -ruN --binary -x build -x lib dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
 --- dec.orig/AndroidManifest.xml	2026-11-08 13:03:04.360795000 +0800
-+++ dec/AndroidManifest.xml	2026-11-08 21:09:56.000468000 +0800
++++ dec/AndroidManifest.xml	2026-11-08 22:26:44.367886600 +0800
 @@ -1,5 +1,5 @@
  <?xml version="1.0" encoding="utf-8"?>
 -<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:compileSdkVersion="29" android:compileSdkVersionCodename="10" package="com.sonelli.juicessh" platformBuildVersionCode="29" platformBuildVersionName="10">
@@ -8,17 +8,16 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
      <permission android:name="com.sonelli.juicessh.permission.C2D_MESSAGE" android:protectionLevel="signature"/>
      <permission android:name="com.sonelli.juicessh.permission.CLOUDSYNC" android:protectionLevel="signature"/>
      <permission android:name="com.sonelli.juicessh.permission.EC2LINK" android:protectionLevel="signature"/>
-@@ -17,6 +17,9 @@
+@@ -17,6 +17,8 @@
      <permission android:name="com.sonelli.juicessh.api.v1.permission.JUICESSH_ONLY" android:protectionLevel="signature"/>
      <permission android:label="@string/juicessh_plugin_log_read_only" android:name="com.sonelli.juicessh.api.v1.permission.READ_PLUGIN_LOG"/>
      <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
 +    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 +    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
      <uses-permission android:name="android.permission.INTERNET"/>
      <uses-permission android:name="com.sonelli.juicessh.permission.C2D_MESSAGE"/>
      <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
-@@ -24,12 +27,9 @@
+@@ -24,12 +26,9 @@
      <uses-permission android:name="com.android.vending.BILLING"/>
      <uses-permission android:name="android.permission.WAKE_LOCK"/>
      <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -32,7 +31,7 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
          <service android:enabled="true" android:exported="true" android:name="com.sonelli.juicessh.services.ConnectionPluginService" android:permission="com.sonelli.juicessh.api.v1.permission.OPEN_SESSIONS">
              <intent-filter>
                  <action android:name="com.sonelli.juicessh.connectionpluginservice"/>
-@@ -62,7 +62,7 @@
+@@ -62,7 +61,7 @@
          <meta-data android:name="com.sec.android.multiwindow.MINIMUM_SIZE_W" android:resource="@dimen/app_minimumsize_w"/>
          <meta-data android:name="com.sec.android.multiwindow.MINIMUM_SIZE_H" android:resource="@dimen/app_minimumsize_h"/>
          <service android:enabled="true" android:name="com.sonelli.juicessh.services.PushNotification"/>
@@ -41,7 +40,7 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
              <intent-filter>
                  <data android:scheme="sftpservice"/>
                  <action android:name="com.sonelli.juicessh.action.SFTP_PAUSE"/>
-@@ -70,14 +70,14 @@
+@@ -70,14 +69,14 @@
                  <action android:name="com.sonelli.juicessh.action.SFTP_RESUME"/>
              </intent-filter>
          </receiver>
@@ -58,7 +57,7 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
              <intent-filter>
                  <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
              </intent-filter>
-@@ -97,33 +97,30 @@
+@@ -97,33 +96,30 @@
                  <category android:name="android.intent.category.DEFAULT"/>
              </intent-filter>
          </service>
@@ -100,7 +99,7 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
          </activity>
          <activity android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize" android:exported="true" android:label="@string/juicessh" android:name="com.sonelli.juicessh.activities.TerminalEmulatorActivity" android:theme="@style/Theme.JuiceSSH.Material.Terminal" android:windowSoftInputMode="adjustResize">
              <intent-filter>
-@@ -174,10 +171,10 @@
+@@ -174,10 +170,10 @@
              </intent-filter>
          </activity>
          <activity android:configChanges="orientation" android:exported="false" android:label="@string/juicessh" android:name="com.sonelli.juicessh.activities.LockoutActivity" android:theme="@style/Theme.JuiceSSH.Material.Terminal"/>
@@ -113,24 +112,43 @@ diff -ruN --binary -x build dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
              <meta-data android:name="android.support.PARENT_ACTIVITY" android:value=".activities.SettingsActivity"/>
          </activity>
          <activity android:label="@string/components_and_licenses" android:name="com.sonelli.juicessh.activities.SoftwareLicensesActivity" android:parentActivityName="com.sonelli.juicessh.activities.SettingsActivity">
-diff -ruN --binary -x build dec.orig/apktool.yml dec/apktool.yml
+diff -ruN --binary -x build -x lib dec.orig/apktool.yml dec/apktool.yml
 --- dec.orig/apktool.yml	2026-11-08 13:03:07.057419200 +0800
-+++ dec/apktool.yml	2026-11-08 21:35:08.174101200 +0800
-@@ -5,10 +5,10 @@
-   - 1
- sdkInfo:
-   minSdkVersion: 26
++++ dec/apktool.yml	2026-11-08 22:21:18.234293600 +0800
+@@ -1,16 +1,16 @@
+-version: 3.0.3
+-apkFileName: JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk
+-usesFramework:
+-  ids:
+-  - 1
+-sdkInfo:
+-  minSdkVersion: 26
 -  targetSdkVersion: 29
-+  targetSdkVersion: 36
- versionInfo:
+-versionInfo:
 -  versionCode: 200
 -  versionName: 3.2.2
-+  versionCode: 212
-+  versionName: 3.2.2-community.3
- resourcesInfo:
-   packageId: 127
- doNotCompress:
-diff -ruN --binary -x build dec.orig/res/xml/network_security_config.xml dec/res/xml/network_security_config.xml
+-resourcesInfo:
+-  packageId: 127
+-doNotCompress:
+-- arsc
+-- png
++version: 3.0.3
++apkFileName: JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk
++usesFramework:
++  ids:
++  - 1
++sdkInfo:
++  minSdkVersion: 26
++  targetSdkVersion: 36
++versionInfo:
++  versionCode: 213
++  versionName: 3.2.2-community.4
++resourcesInfo:
++  packageId: 127
++doNotCompress:
++- arsc
++- png
+diff -ruN --binary -x build -x lib dec.orig/res/xml/network_security_config.xml dec/res/xml/network_security_config.xml
 --- dec.orig/res/xml/network_security_config.xml	1970-01-01 08:00:00.000000000 +0800
 +++ dec/res/xml/network_security_config.xml	2026-11-08 21:10:08.483560200 +0800
 @@ -0,0 +1,14 @@
@@ -148,7 +166,7 @@ diff -ruN --binary -x build dec.orig/res/xml/network_security_config.xml dec/res
 +        </trust-anchors>
 +    </base-config>
 +</network-security-config>
-diff -ruN --binary -x build dec.orig/smali/android/support/v4/media/session/MediaSessionCompat.smali dec/smali/android/support/v4/media/session/MediaSessionCompat.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/android/support/v4/media/session/MediaSessionCompat.smali dec/smali/android/support/v4/media/session/MediaSessionCompat.smali
 --- dec.orig/smali/android/support/v4/media/session/MediaSessionCompat.smali	2026-11-08 13:03:01.378241700 +0800
 +++ dec/smali/android/support/v4/media/session/MediaSessionCompat.smali	2026-11-08 14:14:47.645631700 +0800
 @@ -324,7 +324,7 @@
@@ -170,7 +188,7 @@ diff -ruN --binary -x build dec.orig/smali/android/support/v4/media/session/Medi
  
      move-result-object p4
  
-diff -ruN --binary -x build dec.orig/smali/androidx/appcompat/widget/SearchView.smali dec/smali/androidx/appcompat/widget/SearchView.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/androidx/appcompat/widget/SearchView.smali dec/smali/androidx/appcompat/widget/SearchView.smali
 --- dec.orig/smali/androidx/appcompat/widget/SearchView.smali	2026-11-08 13:03:01.767064000 +0800
 +++ dec/smali/androidx/appcompat/widget/SearchView.smali	2026-11-08 14:14:47.677632100 +0800
 @@ -949,7 +949,7 @@
@@ -193,7 +211,7 @@ diff -ruN --binary -x build dec.orig/smali/androidx/appcompat/widget/SearchView.
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/androidx/core/app/TaskStackBuilder.smali dec/smali/androidx/core/app/TaskStackBuilder.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/androidx/core/app/TaskStackBuilder.smali dec/smali/androidx/core/app/TaskStackBuilder.smali
 --- dec.orig/smali/androidx/core/app/TaskStackBuilder.smali	2026-11-08 13:03:01.954792800 +0800
 +++ dec/smali/androidx/core/app/TaskStackBuilder.smali	2026-11-08 14:14:47.693636200 +0800
 @@ -441,7 +441,7 @@
@@ -227,7 +245,7 @@ diff -ruN --binary -x build dec.orig/smali/androidx/core/app/TaskStackBuilder.sm
  
      move-result-object p1
  
-diff -ruN --binary -x build dec.orig/smali/androidx/media/session/MediaButtonReceiver.smali dec/smali/androidx/media/session/MediaButtonReceiver.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/androidx/media/session/MediaButtonReceiver.smali dec/smali/androidx/media/session/MediaButtonReceiver.smali
 --- dec.orig/smali/androidx/media/session/MediaButtonReceiver.smali	2026-11-08 13:03:02.459368700 +0800
 +++ dec/smali/androidx/media/session/MediaButtonReceiver.smali	2026-11-08 14:14:47.740210500 +0800
 @@ -56,7 +56,7 @@
@@ -249,7 +267,7 @@ diff -ruN --binary -x build dec.orig/smali/androidx/media/session/MediaButtonRec
  
      move-result-object p0
  
-diff -ruN --binary -x build dec.orig/smali/com/google/android/gms/common/api/GoogleApiActivity.smali dec/smali/com/google/android/gms/common/api/GoogleApiActivity.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/google/android/gms/common/api/GoogleApiActivity.smali dec/smali/com/google/android/gms/common/api/GoogleApiActivity.smali
 --- dec.orig/smali/com/google/android/gms/common/api/GoogleApiActivity.smali	2026-11-08 13:03:03.136897200 +0800
 +++ dec/smali/com/google/android/gms/common/api/GoogleApiActivity.smali	2026-11-08 14:14:47.802724800 +0800
 @@ -31,7 +31,7 @@
@@ -271,7 +289,7 @@ diff -ruN --binary -x build dec.orig/smali/com/google/android/gms/common/api/Goo
  
      move-result-object p0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/be0.smali dec/smali/com/sonelli/be0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/be0.smali dec/smali/com/sonelli/be0.smali
 --- dec.orig/smali/com/sonelli/be0.smali	2026-11-08 13:03:04.293812200 +0800
 +++ dec/smali/com/sonelli/be0.smali	2026-11-08 14:14:47.893231200 +0800
 @@ -116,7 +116,7 @@
@@ -293,7 +311,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/be0.smali dec/smali/com/s
  
      move-result-object p0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/ci0.smali dec/smali/com/sonelli/ci0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/ci0.smali dec/smali/com/sonelli/ci0.smali
 --- dec.orig/smali/com/sonelli/ci0.smali	2026-11-08 13:03:04.384302100 +0800
 +++ dec/smali/com/sonelli/ci0.smali	2026-11-08 18:35:00.541775100 +0800
 @@ -67,84 +67,40 @@
@@ -392,7 +410,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/ci0.smali dec/smali/com/s
  
      return-object v0
  .end method
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/di0.smali dec/smali/com/sonelli/di0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/di0.smali dec/smali/com/sonelli/di0.smali
 --- dec.orig/smali/com/sonelli/di0.smali	2026-11-08 13:03:04.449798100 +0800
 +++ dec/smali/com/sonelli/di0.smali	2026-11-08 21:35:02.061679500 +0800
 @@ -554,7 +554,7 @@
@@ -404,7 +422,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/di0.smali dec/smali/com/s
  
      move-result v0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/ei0.smali dec/smali/com/sonelli/ei0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/ei0.smali dec/smali/com/sonelli/ei0.smali
 --- dec.orig/smali/com/sonelli/ei0.smali	2026-11-08 13:03:04.524015900 +0800
 +++ dec/smali/com/sonelli/ei0.smali	2026-11-08 14:14:47.910738800 +0800
 @@ -452,7 +452,7 @@
@@ -464,7 +482,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/ei0.smali dec/smali/com/s
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/gi0.smali dec/smali/com/sonelli/gi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/gi0.smali dec/smali/com/sonelli/gi0.smali
 --- dec.orig/smali/com/sonelli/gi0.smali	2026-11-08 13:03:04.650204600 +0800
 +++ dec/smali/com/sonelli/gi0.smali	2026-11-08 14:14:47.922738100 +0800
 @@ -464,7 +464,7 @@
@@ -535,7 +553,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/gi0.smali dec/smali/com/s
  
      move-result-object v0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/h1.smali dec/smali/com/sonelli/h1.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/h1.smali dec/smali/com/sonelli/h1.smali
 --- dec.orig/smali/com/sonelli/h1.smali	2026-11-08 13:03:04.690432100 +0800
 +++ dec/smali/com/sonelli/h1.smali	2026-11-08 14:14:47.927738400 +0800
 @@ -78,7 +78,7 @@
@@ -576,7 +594,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/h1.smali dec/smali/com/so
  
      move-result-object p1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/hi0.smali dec/smali/com/sonelli/hi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/hi0.smali dec/smali/com/sonelli/hi0.smali
 --- dec.orig/smali/com/sonelli/hi0.smali	2026-11-08 13:03:04.721128900 +0800
 +++ dec/smali/com/sonelli/hi0.smali	2026-11-08 14:14:47.929738200 +0800
 @@ -184,7 +184,7 @@
@@ -637,7 +655,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/hi0.smali dec/smali/com/s
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/ii0.smali dec/smali/com/sonelli/ii0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/ii0.smali dec/smali/com/sonelli/ii0.smali
 --- dec.orig/smali/com/sonelli/ii0.smali	2026-11-08 13:03:04.773827800 +0800
 +++ dec/smali/com/sonelli/ii0.smali	2026-11-08 14:14:47.935739200 +0800
 @@ -367,7 +367,7 @@
@@ -698,7 +716,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/ii0.smali dec/smali/com/s
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/ipaddr.smali dec/smali/com/sonelli/ipaddr.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/ipaddr.smali dec/smali/com/sonelli/ipaddr.smali
 --- dec.orig/smali/com/sonelli/ipaddr.smali	1970-01-01 08:00:00.000000000 +0800
 +++ dec/smali/com/sonelli/ipaddr.smali	2026-11-08 21:35:02.126257000 +0800
 @@ -0,0 +1,555 @@
@@ -1257,7 +1275,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/ipaddr.smali dec/smali/co
 +    :cond_11
 +    return v0
 +.end method
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali dec/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali dec/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali
 --- dec.orig/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali	2026-11-08 13:03:04.877312900 +0800
 +++ dec/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali	2026-11-08 14:14:48.049247300 +0800
 @@ -531,7 +531,7 @@
@@ -1289,7 +1307,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/activities/Addre
  
      move-result-object v2
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/activities/MainActivity.smali dec/smali/com/sonelli/juicessh/activities/MainActivity.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/activities/MainActivity.smali dec/smali/com/sonelli/juicessh/activities/MainActivity.smali
 --- dec.orig/smali/com/sonelli/juicessh/activities/MainActivity.smali	2026-11-08 13:03:04.893828600 +0800
 +++ dec/smali/com/sonelli/juicessh/activities/MainActivity.smali	2026-11-08 21:08:47.553592600 +0800
 @@ -53,40 +53,13 @@
@@ -1812,7 +1830,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/activities/MainA
      return-void
  .end method
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali dec/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali dec/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali
 --- dec.orig/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali	2026-11-08 13:03:04.961241500 +0800
 +++ dec/smali/com/sonelli/juicessh/connections/ConnectionManagerService.smali	2026-11-08 21:09:11.214381600 +0800
 @@ -847,7 +847,7 @@
@@ -1892,7 +1910,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/connections/Conn
      const-string v1, "ConnectionManagerService"
  
      const-string v3, "Creating ConnectionManager Service"
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali dec/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali dec/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali
 --- dec.orig/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali	2026-11-08 13:03:04.965237500 +0800
 +++ dec/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali	2026-11-08 14:00:32.725083200 +0800
 @@ -93,61 +93,5 @@
@@ -1957,7 +1975,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/controllers/Appl
 -
      return-void
  .end method
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/models/Connection.smali dec/smali/com/sonelli/juicessh/models/Connection.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/models/Connection.smali dec/smali/com/sonelli/juicessh/models/Connection.smali
 --- dec.orig/smali/com/sonelli/juicessh/models/Connection.smali	2026-11-08 13:03:04.997977700 +0800
 +++ dec/smali/com/sonelli/juicessh/models/Connection.smali	2026-11-08 21:35:02.060678700 +0800
 @@ -228,13 +228,13 @@
@@ -1976,7 +1994,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/models/Connectio
  
      move-result p0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/models/TeamMembership.smali dec/smali/com/sonelli/juicessh/models/TeamMembership.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/models/TeamMembership.smali dec/smali/com/sonelli/juicessh/models/TeamMembership.smali
 --- dec.orig/smali/com/sonelli/juicessh/models/TeamMembership.smali	2026-11-08 13:03:05.017490600 +0800
 +++ dec/smali/com/sonelli/juicessh/models/TeamMembership.smali	2026-11-08 14:14:48.061247400 +0800
 @@ -254,7 +254,7 @@
@@ -2018,7 +2036,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/models/TeamMembe
  
      move-result-object v2
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/services/CloudSync.smali dec/smali/com/sonelli/juicessh/services/CloudSync.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/services/CloudSync.smali dec/smali/com/sonelli/juicessh/services/CloudSync.smali
 --- dec.orig/smali/com/sonelli/juicessh/services/CloudSync.smali	2026-11-08 13:03:05.080684500 +0800
 +++ dec/smali/com/sonelli/juicessh/services/CloudSync.smali	2026-11-08 14:14:48.068251500 +0800
 @@ -589,7 +589,7 @@
@@ -2040,7 +2058,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/services/CloudSy
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/services/Ec2Link.smali dec/smali/com/sonelli/juicessh/services/Ec2Link.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/services/Ec2Link.smali dec/smali/com/sonelli/juicessh/services/Ec2Link.smali
 --- dec.orig/smali/com/sonelli/juicessh/services/Ec2Link.smali	2026-11-08 13:03:05.090434800 +0800
 +++ dec/smali/com/sonelli/juicessh/services/Ec2Link.smali	2026-11-08 14:14:48.069251100 +0800
 @@ -156,7 +156,7 @@
@@ -2062,7 +2080,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/services/Ec2Link
  
      move-result-object v2
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali dec/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali dec/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali
 --- dec.orig/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali	2026-11-08 13:03:05.138770100 +0800
 +++ dec/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali	2026-11-08 14:14:48.073247500 +0800
 @@ -36,7 +36,7 @@
@@ -2134,7 +2152,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/juicessh/widgets/Connecti
  
      move-result-object p1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/lh.smali dec/smali/com/sonelli/lh.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/lh.smali dec/smali/com/sonelli/lh.smali
 --- dec.orig/smali/com/sonelli/lh.smali	2026-11-08 13:03:05.238710900 +0800
 +++ dec/smali/com/sonelli/lh.smali	2026-11-08 14:14:47.953739200 +0800
 @@ -182,7 +182,9 @@
@@ -2148,7 +2166,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/lh.smali dec/smali/com/so
  
      .line 9
      invoke-virtual {p0}, Lcom/sonelli/lh;->f()Z
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/m3.smali dec/smali/com/sonelli/m3.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/m3.smali dec/smali/com/sonelli/m3.smali
 --- dec.orig/smali/com/sonelli/m3.smali	2026-11-08 13:03:05.391507500 +0800
 +++ dec/smali/com/sonelli/m3.smali	2026-11-08 14:14:47.956738200 +0800
 @@ -246,7 +246,7 @@
@@ -2170,7 +2188,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/m3.smali dec/smali/com/so
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/o3.smali dec/smali/com/sonelli/o3.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/o3.smali dec/smali/com/sonelli/o3.smali
 --- dec.orig/smali/com/sonelli/o3.smali	2026-11-08 13:03:05.493385600 +0800
 +++ dec/smali/com/sonelli/o3.smali	2026-11-08 14:14:47.968740500 +0800
 @@ -706,7 +706,7 @@
@@ -2211,7 +2229,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/o3.smali dec/smali/com/so
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/oi0.smali dec/smali/com/sonelli/oi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/oi0.smali dec/smali/com/sonelli/oi0.smali
 --- dec.orig/smali/com/sonelli/oi0.smali	2026-11-08 13:03:05.542567900 +0800
 +++ dec/smali/com/sonelli/oi0.smali	2026-11-08 14:08:25.120541800 +0800
 @@ -341,145 +341,10 @@
@@ -2363,7 +2381,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/oi0.smali dec/smali/com/s
 -    return v1
 +    return v0
  .end method
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/qg0$a.smali dec/smali/com/sonelli/qg0$a.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/qg0$a.smali dec/smali/com/sonelli/qg0$a.smali
 --- dec.orig/smali/com/sonelli/qg0$a.smali	2026-11-08 13:03:05.661156600 +0800
 +++ dec/smali/com/sonelli/qg0$a.smali	2026-11-08 21:35:02.104227500 +0800
 @@ -1,6 +1,6 @@
@@ -2383,7 +2401,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/qg0$a.smali dec/smali/com
      invoke-direct {p0}, Ljava/lang/Exception;-><init>()V
  
      return-void
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/qg0.smali dec/smali/com/sonelli/qg0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/qg0.smali dec/smali/com/sonelli/qg0.smali
 --- dec.orig/smali/com/sonelli/qg0.smali	2026-11-08 13:03:05.661156600 +0800
 +++ dec/smali/com/sonelli/qg0.smali	2026-11-08 21:35:02.082702500 +0800
 @@ -1,6 +1,6 @@
@@ -3195,7 +3213,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/qg0.smali dec/smali/com/s
 -    return-object v0
 +    return-object p0
  .end method
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/qi0.smali dec/smali/com/sonelli/qi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/qi0.smali dec/smali/com/sonelli/qi0.smali
 --- dec.orig/smali/com/sonelli/qi0.smali	2026-11-08 13:03:05.666098300 +0800
 +++ dec/smali/com/sonelli/qi0.smali	2026-11-08 21:08:58.736528400 +0800
 @@ -29,28 +29,10 @@
@@ -3245,7 +3263,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/qi0.smali dec/smali/com/s
      return-void
  .end method
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/v30.smali dec/smali/com/sonelli/v30.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/v30.smali dec/smali/com/sonelli/v30.smali
 --- dec.orig/smali/com/sonelli/v30.smali	2026-11-08 13:03:06.040397000 +0800
 +++ dec/smali/com/sonelli/v30.smali	2026-11-08 14:14:48.016247200 +0800
 @@ -51,7 +51,7 @@
@@ -3267,7 +3285,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/v30.smali dec/smali/com/s
  
      move-result-object v0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/vi0.smali dec/smali/com/sonelli/vi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/vi0.smali dec/smali/com/sonelli/vi0.smali
 --- dec.orig/smali/com/sonelli/vi0.smali	2026-11-08 13:03:06.059917600 +0800
 +++ dec/smali/com/sonelli/vi0.smali	2026-11-08 14:14:48.019249100 +0800
 @@ -346,7 +346,7 @@
@@ -3346,7 +3364,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/vi0.smali dec/smali/com/s
  
      move-result-object v0
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/xi0.smali dec/smali/com/sonelli/xi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/xi0.smali dec/smali/com/sonelli/xi0.smali
 --- dec.orig/smali/com/sonelli/xi0.smali	2026-11-08 13:03:06.177582700 +0800
 +++ dec/smali/com/sonelli/xi0.smali	2026-11-08 14:14:48.030247300 +0800
 @@ -262,7 +262,7 @@
@@ -3387,7 +3405,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/xi0.smali dec/smali/com/s
  
      move-result-object v8
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/y6.smali dec/smali/com/sonelli/y6.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/y6.smali dec/smali/com/sonelli/y6.smali
 --- dec.orig/smali/com/sonelli/y6.smali	2026-11-08 13:03:06.215945000 +0800
 +++ dec/smali/com/sonelli/y6.smali	2026-11-08 14:14:48.034249200 +0800
 @@ -235,7 +235,7 @@
@@ -3409,7 +3427,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/y6.smali dec/smali/com/so
  
      move-result-object p1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/yi0.smali dec/smali/com/sonelli/yi0.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/yi0.smali dec/smali/com/sonelli/yi0.smali
 --- dec.orig/smali/com/sonelli/yi0.smali	2026-11-08 13:03:06.236066800 +0800
 +++ dec/smali/com/sonelli/yi0.smali	2026-11-08 13:59:42.051745400 +0800
 @@ -145,9 +145,13 @@
@@ -3428,7 +3446,7 @@ diff -ruN --binary -x build dec.orig/smali/com/sonelli/yi0.smali dec/smali/com/s
  
      move-result-object v1
  
-diff -ruN --binary -x build dec.orig/smali/com/sonelli/zg.smali dec/smali/com/sonelli/zg.smali
+diff -ruN --binary -x build -x lib dec.orig/smali/com/sonelli/zg.smali dec/smali/com/sonelli/zg.smali
 --- dec.orig/smali/com/sonelli/zg.smali	2026-11-08 13:03:06.300522100 +0800
 +++ dec/smali/com/sonelli/zg.smali	2026-11-08 14:14:48.043247200 +0800
 @@ -409,7 +409,7 @@

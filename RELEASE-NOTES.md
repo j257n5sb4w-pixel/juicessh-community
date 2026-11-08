@@ -2,9 +2,33 @@
 
 基于原版 JuiceSSH 3.2.2（`versionCode 200`，`com.sonelli.juicessh`）的社区维护补丁集。
 
-当前版本：`3.2.2-community.3`（`versionCode 212`，`targetSdk 36`）
+当前版本：`3.2.2-community.4`（`versionCode 213`，`targetSdk 36`）
 
-## 本版（community.3 / 212）相对上一版的改动
+## 本版（community.4 / 213）相对上一版的改动
+
+- **arm64-v8a 的 `libssh` 从 0.9.3 升到 0.11.3、`OpenSSL` 从 1.1.1g 升到 3.5.4**，
+  两者都用 NDK r29 重新交叉编译，`p_align` 从 4096 变成 **16384**。原库带
+  `CVE-2021-3634`、`CVE-2020-1730`、Terrapin `CVE-2023-48795` 与
+  `CVE-2025-5372`（OpenSSL < 3.0），且 16 KB 页设备只能靠兼容模式跑；这一版
+  arm64 上两个问题一起解决。
+- **换了实现但不改接口**：JuiceSSH 用 JNA 按普通 C 符号名绑定，不依赖 JNI 导出名。
+  旧库 424 个导出符号新库全有（新库 901 个），smali 里实际调用的 66 个方法名零缺失；
+  `ssh_channel_callbacks_struct` / `sftp_attributes_struct` 的字段顺序与 0.11.3 一致，
+  新增的两个回调在结构体尾部、App 按 `size` 初始化，因而不受影响。
+- **删掉 arm64-v8a 的 `libssl.so`**：没有任何库 `NEEDED` 它，省 786 KB。
+- **删掉 `FOREGROUND_SERVICE_DATA_SYNC` 权限**：前台服务类型已换成 `specialUse`，
+  这条权限不再对应任何声明，属最小权限清理。
+- **`libssh` 上游一处 bionic 兼容缺陷**：`src/misc.c:324` 用 `S_IWRITE`（Windows 写法）
+  编不过，改为等价的 `S_IWUSR`。编译选项只额外加了 `-Wl,-z,max-page-size=16384`。
+- `versionCode` → 213，`versionName` → `3.2.2-community.4`。
+
+代价：arm64-v8a 这两个库从 3.9 MB 涨到 6.5 MB，APK 净增约 0.97 MB。libssh 0.11.3 与
+OpenSSL 3 的默认算法列表比旧版更严，只支持 `ssh-rsa`/`3des-cbc`/`group1-sha1`/
+Blowfish/CAST/RC4 的老服务器可能连不上——这是安全改进，但对老内网设备是行为变化。
+
+复现步骤、ABI 核对与风险见 `native/README.md`。
+
+## 上一版（community.3 / 212）相对 community.2 的改动
 
 - **凭据库加密升级**：`qg0`（原 `AES.java`）从 `PBKDF2WithHmacSHA1` **1000 轮** +
   `AES/CBC/PKCS5Padding`，改为 `PBKDF2WithHmacSHA256` **210000 轮** + `AES-256-GCM`
@@ -77,15 +101,16 @@ baksmali 反汇编，再把 smali 放回解码树。`javasrc/VaultTest.java` 的
 
 ## 未修复
 
-原生库 `libssh 0.9.3` / `OpenSSL 1.1.1g` 的已知漏洞（`CVE-2021-3634`、`CVE-2020-1730`、
-Terrapin `CVE-2023-48795`、`CVE-2025-5372`）依然存在——重编四个 ABI 有超出补丁范围的风险。
-只连接你信任的 SSH 服务器。
+其余 ABI（`armeabi-v7a` / `x86` / `x86_64`）的 `libssh 0.9.3` / `OpenSSL 1.1.1g` 已知漏洞
+（`CVE-2021-3634`、`CVE-2020-1730`、Terrapin `CVE-2023-48795`、`CVE-2025-5372`）依然
+存在——现代设备基本都是 arm64，为它们重编只会再加约 4 MB。只连接你信任的 SSH 服务器。
 
 **telnet 不可用**：`libcom_sonelli_telnet.so` 同样是 32 位 ARM，系统里没有可替代的客户端。
 
-**16 KB 页对齐**：39 个真实 ELF 里 38 个 `p_align=4096`，只有
-`arm64-v8a/libjnidispatch.so` 是 65536。`pageSizeCompat="enabled"` 只是抑制警告，
-不是真正的兼容。要彻底解决必须重编所有 `.so`。
+**16 KB 页对齐**：arm64-v8a 的 `libcom.sonelli.libssh.so` 与 `libcrypto.so` 已改成
+`p_align=16384`，但其余 36 个 ELF（含 `libjnidispatch.so` 之外的 mosh/telnet/bash、
+以及另外三个 ABI）仍是 4096。`pageSizeCompat="enabled"` 只是抑制警告，不是真正的兼容；
+剩下的要重编才有意义。
 
 **凭据库仍没有 AndroidKeyStore 托管**：v2 把 KDF 和 AEAD 换掉了，但密钥依旧由用户口令
 派生，口令弱则库弱；同一份数据库换设备仍可解开（这是刻意的，便于迁移）。默认账户哈希
@@ -93,22 +118,28 @@ Terrapin `CVE-2023-48795`、`CVE-2025-5372`）依然存在——重编四个 ABI
 
 ## 验证状态
 
-本版（community.2）验证：
+本版（community.4）验证：
 
-- 补丁可从干净解码树零冲突重现（`diff -rq` 0 差异，无 `.rej`）
+- 补丁可从干净解码树零冲突重现（`diff -rq` 0 差异，无 `.rej`）；补丁只含文本，
+  原生库由 `native/arm64-v8a/` 复制，`dec.orig + patch + native == dec` 已逐文件核对
 - 端到端：`build.sh <原版APK> framework-res.apk` 五阶段全过，产物可被 aapt2 解析
-- `aapt2 dump badging`：`versionCode=211`、`targetSdkVersion=36`、
+- `aapt2 dump badging`：`versionCode=213`、`targetSdkVersion=36`、
   `compileSdkVersion=36`，权限表含 `FOREGROUND_SERVICE_SPECIAL_USE` 与
   `POST_NOTIFICATIONS`，不再含存储/快捷方式权限
 - 反编译产物核对：`MainActivity` 的权限申请、`ConnectionManagerService` 的渠道重建、
-  `qi0` 的空构造器都已编译进 dex
+  `qi0` 的空构造器都已编译进 dex；`qg0` 含 `PBKDF2WithHmacSHA256` 与
+  `AES/GCM/NoPadding`，旧 KDF 分支仍在
+- 原生库：从 APK 解包后 `llvm-readelf` 复核 `p_align=0x4000`、
+  `NEEDED` 正确、arm64 下无 `libssl.so`；旧库 424 个导出符号与新库比对无函数缺失，
+  smali 实际调用的 66 个方法名零缺失
 - 签名：v1+v2+v3，证书 SHA-256
   `01:EE:3E:87:E8:D9:1A:8E:81:5F:CF:13:C7:CD:04:3C:26:17:62:8F:DD:59:C5:D3:E7:0B:4F:62:A0:D9:17:E5`
-  ——与上一版社区构建同一把密钥，可直接覆盖升级，无需卸载
+  ——与最初社区构建同一把密钥，可直接覆盖升级，无需卸载
 
 **未做真机验证**：本次构建时没有可用的 Android 设备（`adb devices` 为空），
-通知、前台服务、导出性这些改动只有静态与构建级证据。请在装好后按 README 的
-「回归检查清单」逐项确认。
+通知、前台服务、导出性这些改动只有静态与构建级证据。**重建的 libssh/OpenSSL 尤其需要
+一次真实登录**：符号与结构体只做了静态核对，握手、PTY、SFTP、端口转发、agent 转发
+都还没有跑过。请在装好后按 README 的「回归检查清单」逐项确认。
 
 ## 真机验证（上一版 community / 210，Android 16 / SDK 36 / arm64）
 
@@ -135,9 +166,16 @@ size    24,914,048 bytes
 sha256  53539dd334f5db39a1d0d01d644c80219cf6517f5fd04871dd2c4320a89987e4
 ```
 
-本版参考产物（targetSdk 36）：
+本版参考产物（targetSdk 36，含重建原生库）：
+
+```
+size    25,884,812 bytes
+sha256  a8341505347670bf48f8131c17eee2e2f9f0451fa4aa57b2b549a8fede59333f
+```
+
+上一版参考产物（community.3，纯 Java 补丁）：
 
 ```
 size    24,914,129 bytes
-sha256  2365ce7468e63d0b75c859b37f2eb69391555e531708323be3a587be67029cff
+sha256  5ba0d3b381db61d956eb3cecba6f9938f12abc502b619d7c4c0ecbb0942095ad
 ```

@@ -92,6 +92,17 @@ for p in "$ROOT"/patches/*.patch; do
   ( cd "$DEC" && patch -p1 --binary -s -i "$p" )
 done
 
+# Text patches cannot carry shared libraries, so the rebuilt arm64-v8a
+# libssh/OpenSSL pair is installed here. See native/README.md.
+echo "==> [3b] installing rebuilt native libraries"
+for so in "$ROOT"/native/arm64-v8a/*.so; do
+  [[ -f "$so" ]] || continue
+  cp -f "$so" "$DEC/lib/arm64-v8a/"
+  echo "    $(basename "$so") $(wc -c <"$so" | tr -d ' ') bytes"
+done
+# Nothing links against libssl.so any more (libssh only needs libcrypto).
+rm -f "$DEC/lib/arm64-v8a/libssl.so"
+
 echo "==> [4/5] assembling"
 UNSIGNED="$WORK/unsigned.apk"
 "$JAVA_BIN" -Xmx4g -jar "$APKTOOL" b -f -p "$FW" -o "$UNSIGNED" "$DEC" >/dev/null
