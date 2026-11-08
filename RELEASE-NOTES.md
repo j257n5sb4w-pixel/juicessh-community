@@ -2,9 +2,25 @@
 
 基于原版 JuiceSSH 3.2.2（`versionCode 200`，`com.sonelli.juicessh`）的社区维护补丁集。
 
-当前版本：`3.2.2-community.2`（`versionCode 211`，`targetSdk 36`）
+当前版本：`3.2.2-community.3`（`versionCode 212`，`targetSdk 36`）
 
-## 本版（community.2 / 211）相对上一版（community / 210）的改动
+## 本版（community.3 / 212）相对上一版的改动
+
+- **凭据库加密升级**：`qg0`（原 `AES.java`）从 `PBKDF2WithHmacSHA1` **1000 轮** +
+  `AES/CBC/PKCS5Padding`，改为 `PBKDF2WithHmacSHA256` **210000 轮** + `AES-256-GCM`
+  （128 位 tag，AAD 固定 `"v2"`，防降级）。写入格式变成
+  `v2#base64(salt)#base64(iv)#base64(ct+tag)`；旧格式 `salt#iv#ct` 仍然可读，所以升级后
+  已存的密码、私钥、团队密钥照常能解开。任何新写入或编辑都会转成 v2。
+- **不再让 `org.apache.http.legacy` 承担主机校验**：新增 `com.sonelli.ipaddr`
+  （纯 Java 手写 IPv4/IPv6 解析，不触发 DNS），替换 `Connection.isValidHostname()` 与
+  EC2 代码中的 `InetAddressUtils` 调用。
+- `versionCode` → 212，`versionName` → `3.2.2-community.3`。
+
+实现方式：`javasrc/com/sonelli/{qg0,ipaddr}.java` 用 javac 编译、d8 转 dex、apktool 自带的
+baksmali 反汇编，再把 smali 放回解码树。`javasrc/VaultTest.java` 的 23 项断言（往返、
+旧格式兼容、篡改检测、错误口令、格式校验、IPv4/IPv6 判定）在生成 smali 之前必须全部通过。
+
+## 上一版（community.2 / 211）相对 community / 210 的改动
 
 上一版已经把 targetSdk 抬到 35、补完 `PendingIntent` 与 `exported`，能在 Android 16
 上安装运行。但它仍然留着几处「装得上、用得不对劲」的问题，本版逐一处理：
@@ -68,9 +84,9 @@ Terrapin `CVE-2023-48795`、`CVE-2025-5372`）依然存在——重编四个 ABI
 `arm64-v8a/libjnidispatch.so` 是 65536。`pageSizeCompat="enabled"` 只是抑制警告，
 不是真正的兼容。要彻底解决必须重编所有 `.so`。
 
-**凭据加密仍是 PBKDF2-HmacSHA1 / 1000 轮 + AES-CBC**，且没有使用 AndroidKeyStore；
-默认账户哈希是 `MD5("New User")` 这个全网常量。改动它需要迁移已存的密码库，属于
-源码级工作，本补丁集不碰。
+**凭据库仍没有 AndroidKeyStore 托管**：v2 把 KDF 和 AEAD 换掉了，但密钥依旧由用户口令
+派生，口令弱则库弱；同一份数据库换设备仍可解开（这是刻意的，便于迁移）。默认账户哈希
+`MD5("New User")` 也仍是全网常量。要上 Keystore 需重做密钥生命周期，属于产品级决定。
 
 ## 验证状态
 

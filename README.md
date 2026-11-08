@@ -144,7 +144,42 @@ java -jar tools/apktool.jar if -p work/fw framework-res.apk
 不碰 `%LOCALAPPDATA%pktool`），且框架未提供时会打印警告。
 `scripts/repack_manifest.py` 是早期走弯路时的产物，**已弃用，不要调用**。
 
-### 6. 存储路径与本地 shell
+### 6. 凭据加密升级（v2 格式）
+
+原实现（`AES.java`，smali 里的 `qg0`）用 `PBKDF2WithHmacSHA1` **1000 轮**派生密钥，再走
+`AES/CBC/PKCS5Padding`。两个问题：1000 轮在今天等于没有（单张显卡每秒可试上百万次），
+CBC 又没有认证，密文可以被比特翻转而不被发现。
+
+现在写出去的格式是：
+
+```
+v2#base64(salt 16B)#base64(iv 12B)#base64(密文 + 16B GCM tag)
+```
+
+- KDF：`PBKDF2WithHmacSHA256`，210000 轮，256 位密钥
+- 加密：`AES-256-GCM`，128 位 tag，AAD 固定为 `"v2"`，防止把新格式降级成旧格式解析
+- salt / iv 全部来自 `SecureRandom`
+
+旧格式（`salt#iv#ct` 三段）仍然可读，所以升级安装后已存的密码、私钥、团队密钥都能照常解开；
+新写入或编辑会自动转成 v2。GCM 校验失败抛 `qg0$a`，与原来的失败语义一致。
+
+实现在 `javasrc/com/sonelli/qg0.java`：先用 javac 编译、d8 转 dex、apktool 自带的 baksmali
+反汇编，再把 smali 放回 `smali/com/sonelli/qg0.smali`。`javasrc/VaultTest.java` 是 JVM 侧的
+23 项断言（往返、旧格式兼容、篡改检测、错误口令、格式校验、IPv4/IPv6 判定），必须在生成
+smali 之前跑通。
+
+仍然**没有**用 AndroidKeyStore：密钥依旧由用户口令派生，口令弱则库弱；但至少不再是
+1000 轮 SHA1 + 无认证 CBC。上 Keystore 需要重做密钥生命周期（改口令要重新包裹），
+属于产品级改动，本次没做。
+
+### 7. 摆脱 org.apache.http.legacy
+
+`Connection.isValidHostname()` 和 EC2 代码用 `org.apache.http.conn.util.InetAddressUtils`
+判断 IPv4/IPv6。这个库自 Android 9 起废弃，官方计划移除。新增 `com.sonelli.ipaddr`
+（纯 Java 手写解析，**不触发 DNS**），替换了两处调用。`<uses-library>` 仍然保留，因为
+云端/EC2 死代码里还有别的 `org.apache.http` 引用，摘掉会让那些路径抛 `NoClassDefFoundError`。
+
+### 8. 存储路径与本地 shell
 
 `yi0`（SFTP 下载控制器）原本把目标目录写死为公共 `Downloads`。改为
 `Context.getExternalFilesDir(null)`，在分区存储下依然可写。
@@ -168,6 +203,8 @@ java -jar tools/apktool.jar if -p work/fw framework-res.apk
   四个 ABI，还要适配 JNA 绑定的函数签名变化。没有真机与完整测试矩阵的情况下动这些，
   比留着已知 CVE 更危险。
 - **替换 androidx / Firebase**：那是源码级重构，需要原始 Java 源码，而这里只有 smali。
+- **把凭据密钥托管到 AndroidKeyStore**：需要重做密钥生命周期（改口令要重新包裹），
+  会改变“同一份数据库换设备也能解”的行为，属于产品级决策，见第 6 节。
 - **移除 Firebase / Crashlytics**：它们的初始化在清单里由 `ContentProvider` 自动完成，
   摘除组件会牵连 `FirebaseInitProvider` 的启动顺序。留着只是不发数据（因为
   `ApplicationClass` 已经不再初始化它们），风险可控。
@@ -202,14 +239,19 @@ Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
 
 ### 已验证的参考产物
 
-本仓库对应的产物（targetSdk 36 版本，`versionCode 211`）：
+本仓库对应的产物（`3.2.2-community.3`，targetSdk 36，`versionCode 212`）：
 
 ```
 size    24,914,129 bytes
-sha256  2365ce7468e63d0b75c859b37f2eb69391555e531708323be3a587be67029cff
+sha256  5ba0d3b381db61d956eb3cecba6f9938f12abc502b619d7c4c0ecbb0942095ad
 签名证书 SHA-256
         01:EE:3E:87:E8:D9:1A:8E:81:5F:CF:13:C7:CD:04:3C:26:17:62:8F:DD:59:C5:D3:E7:0B:4F:62:A0:D9:17:E5
 ```
+
+上一版 `3.2.2-community.2`（`versionCode 211`）的哈希是
+`2365ce7468e63d0b75c859b37f2eb69391555e531708323be3a587be67029cff`；再上一版
+`3.2.2-community`（`versionCode 210`）是 `53539dd334f5db39a1d0d01d644c80219cf6517f5fd04871dd2c4320a89987e4`。
+三版同一把签名密钥。
 
 这一版**沿用了上一版社区构建（`3.2.2-community`，`versionCode 210`）的签名密钥**，
 因此可以直接覆盖升级，不需要卸载、也不会丢主机和凭据。更早的 targetSdk 35 构建
@@ -228,8 +270,8 @@ adb uninstall com.sonelli.juicessh
 adb install dist/JuiceSSH-3.2.2-community.apk
 ```
 
-已经装了上一版社区构建（`3.2.2-community`，versionCode 210）的，直接
-`adb install -r` 即可升级：签名相同、versionCode 211 更高。
+已经装了上一版社区构建（`3.2.2-community` / 210 或 `3.2.2-community.2` / 211）的，直接
+`adb install -r` 即可升级：签名相同、versionCode 212 更高。
 
 ## 回归检查清单
 
