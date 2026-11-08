@@ -45,20 +45,62 @@ JuiceSSH 3.2.2 的社区维护版本。原开发者 Sonelli Ltd. 已停更多年
 
 ### 3. Android 14/15/16 兼容
 
-- `targetSdkVersion` 29 → **35**，`versionCode` 200 → 210，`versionName` → `3.2.2-community`
+- `targetSdkVersion` 29 → **36**（Android 16），`compileSdkVersion` 29 → 36，
+  `versionCode` 200 → 211，`versionName` → `3.2.2-community.2`
 - 51 处 `PendingIntent` 全部补上 `FLAG_IMMUTABLE`（`0x4000000`），并保持原 requestCode
   不变（新增独立寄存器，避免破坏 PendingIntent 的去重语义）
 - `lh.smali` 里对 `com.google.analytics.RADIO_POWERED` 的动态广播注册改为
-  `RECEIVER_NOT_EXPORTED`
-- `ConnectionManagerService` 补 `android:foregroundServiceType="dataSync"`
-- 新增 `FOREGROUND_SERVICE_DATA_SYNC`、`POST_NOTIFICATIONS` 权限
+  `RECEIVER_NOT_EXPORTED`（其余动态广播都是 `CONNECTIVITY_CHANGE` /
+  `BATTERY_CHANGED` / GCM 这类受保护广播，系统对其豁免导出性检查）
+- `ConnectionManagerService` 的 `foregroundServiceType` 由 `dataSync` 改为
+  **`specialUse`**，并补 `<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+  android:value="interactive_ssh_session"/>` 与 `FOREGROUND_SERVICE_SPECIAL_USE` 权限。
+  原因见下面「FGS 类型」一节：`dataSync` 在 Android 15+ 有 24 小时内累计 6 小时的硬上限，
+  长时间挂着的 SSH 会话会被系统掐断。
+- **修复通知全部被静默丢弃**：原版 `ConnectionManagerService.onCreate()` 用
+  `new NotificationChannel("juicessh", …, 0)` 建渠道，importance `0` 就是
+  `IMPORTANCE_NONE`——Android 8+ 上会话通知、SFTP 进度、断开提醒全部不可见。补丁改为
+  `IMPORTANCE_LOW`，并且如果已存在的渠道 importance 为 0（升级安装的场景，渠道建好之后
+  程序无法直接改 importance），先 `deleteNotificationChannel()` 再重建。
+- **运行时申请 `POST_NOTIFICATIONS`**：targetSdk ≥ 33 时该权限默认拒绝，
+  `MainActivity` 启动时检查并在需要时 `requestPermissions()`。没有这一步，前台服务能起来，
+  但通知栏什么都不显示。
 - `MainActivity` / `PushNotificationReceiver` / `ConnectionWidgetProvider` 补
   `android:exported`（targetSdk ≥ 31 时有 intent-filter 却缺这个属性会导致装不上）
 - `android:pageSizeCompat="enabled"` —— 16 KB 页设备上抑制每次启动的兼容性警告弹窗。
 
+### 4. 收紧攻击面
+
+- `android:usesCleartextTraffic` 由 `true` 改为 **`false`**，并新增
+  `android:networkSecurityConfig="@xml/network_security_config"`（仅信任系统 CA、
+  禁止明文）。SSH/SFTP/mosh 走原始 TCP，不受该策略影响；应用内没有 WebView。
+- 删除三条已无用的权限：`WRITE_EXTERNAL_STORAGE`、`READ_EXTERNAL_STORAGE`、
+  `com.android.launcher.permission.INSTALL_SHORTCUT`。代码里没有任何存储权限检查，
+  写文件早已改成 app-specific 目录。
+- 七个只由本应用启动的 Activity 从 `exported="true"` 改为 `false`：
+  `ThankYouForPurchasingActivity`、`ReauthenticateActivity`、`ChangelogActivity`、
+  `AuthenticationMigrationActivity`、`PurchaseActivity`、`ManagePortForwardActivity`、
+  `LogViewerActivity`。原版把它们暴露给任何应用，等于允许第三方直接拉起内购/日志界面。
+- 删除 `MainActivity` 上指向早已不存在的 `com.sonelli.juicessh.exception` 的
+  intent-filter。
+- `SftpPluginService$Receiver` 保持 `exported="true"`（它靠隐式广播
+  `sftpservice://…` 接收暂停/续传/取消，改成 false 会切断自己发的广播），但加上
+  `android:permission="com.sonelli.juicessh.api.v1.permission.JUICESSH_ONLY"`
+  （签名级、manifest 里本就有定义），外部应用再也无法伪造 SFTP 控制指令。
+
+### 5. 停用遥测
+
+原版即使后端已死，仍在连接/会话事件里调用 Google Analytics v3 与 Firebase Analytics
+（`qi0.smali`，jadx 名 `Analytics.java`）。补丁把构造函数里的
+`GoogleAnalytics.getInstance()…` 与 `FirebaseAnalytics.getInstance()` 全部删掉，
+并把上报方法 `b()` 改成空实现——不上报、不初始化、不产生网络请求，但保留类与方法签名，
+避免其它调用点 `NoSuchMethodError`。
+
 #### 两个必须知道的坑
 
-**`foregroundServiceType` 不能写 `connectedDevice`。** 真机上会崩：
+**FGS 类型不能用 `connectedDevice`，也不该再用 `dataSync`。**
+
+`connectedDevice` 在真机上会崩：
 
 ```
 java.lang.SecurityException: Starting FGS with type connectedDevice ...
@@ -66,7 +108,21 @@ requires permissions: [android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE]
 and any of [BLUETOOTH_CONNECT, CHANGE_NETWORK_STATE, NFC, USB Device, ...]
 ```
 
-SSH 客户端不需要蓝牙/USB，所以只用 `dataSync`。
+SSH 客户端不需要蓝牙/USB。早先退而求其次用了 `dataSync`，但从 Android 15（API 35）起
+`dataSync` 属于「有时限的前台服务类型」：应用在 24 小时内累计运行满 **6 小时**后，
+系统会调用 `Service.onTimeout()` 并停止服务。一个挂着不动的 SSH 会话正好会踩到这条线。
+所以现在改用 `specialUse`：
+
+```xml
+<service android:name="….ConnectionManagerService"
+         android:foregroundServiceType="specialUse">
+    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+              android:value="interactive_ssh_session"/>
+</service>
+```
+
+配套需要 `FOREGROUND_SERVICE_SPECIAL_USE` 权限（普通权限，安装即授予）。
+`specialUse` 只受 Play 商店人工审核约束，侧载没有额外门槛，也没有 6 小时上限。
 
 **`pageSizeCompat` 必须用 Android 14+ 的 framework-res.apk 编译。**
 它在 AOSP 里是 **enum**（`enabled=0x20`），不是字符串。apktool 自带的
@@ -81,13 +137,14 @@ INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION: Failed to read manifest ...: For inpu
 
 ```bash
 adb pull //system/framework/framework-res.apk ./framework-res.apk
-java -jar tools/apktool.jar if framework-res.apk
+java -jar tools/apktool.jar if -p work/fw framework-res.apk
 ```
 
-`build.sh` 的 `[2/5]` 步骤做的就是这件事，且框架未提供时会打印警告。
+`build.sh` 的 `[1/5]` 步骤做的就是这件事（用 `-p work/fw` 把框架装在工作区里，
+不碰 `%LOCALAPPDATA%pktool`），且框架未提供时会打印警告。
 `scripts/repack_manifest.py` 是早期走弯路时的产物，**已弃用，不要调用**。
 
-### 4. 存储路径与本地 shell
+### 6. 存储路径与本地 shell
 
 `yi0`（SFTP 下载控制器）原本把目标目录写死为公共 `Downloads`。改为
 `Context.getExternalFilesDir(null)`，在分区存储下依然可写。
@@ -145,26 +202,34 @@ Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
 
 ### 已验证的参考产物
 
-一次完整跑通的产物（Android 16 / SDK 36 / arm64 真机上安装并启动验证通过）：
+本仓库对应的产物（targetSdk 36 版本，`versionCode 211`）：
 
 ```
-size    24,914,048 bytes
-sha256  53539dd334f5db39a1d0d01d644c80219cf6517f5fd04871dd2c4320a89987e4
+size    24,914,129 bytes
+sha256  2365ce7468e63d0b75c859b37f2eb69391555e531708323be3a587be67029cff
+签名证书 SHA-256
+        01:EE:3E:87:E8:D9:1A:8E:81:5F:CF:13:C7:CD:04:3C:26:17:62:8F:DD:59:C5:D3:E7:0B:4F:62:A0:D9:17:E5
 ```
 
-注意：你自己构建出来的哈希不会与上面相同——签名用的是构建时自动生成的新 keystore，
-证书不同则整个 APK 的字节就不同。这也意味着**你的构建产物不能覆盖安装我的**，
-反之亦然。
+这一版**沿用了上一版社区构建（`3.2.2-community`，`versionCode 210`）的签名密钥**，
+因此可以直接覆盖升级，不需要卸载、也不会丢主机和凭据。更早的 targetSdk 35 构建
+（`24,914,048` / `53539dd3…`）也是同一把密钥。
+
+注意：你自己构建出来的哈希不会与上面相同——`build.sh` 首次运行会自动生成新 keystore，
+证书不同则整个 APK 的字节就不同。这也意味着**你的构建产物不能覆盖安装我的**，反之亦然。
 
 ## 安装
 
-由于签名证书与原版不同，**不能覆盖安装**。必须先卸载原版——这会清掉本地数据库里的
+由于签名证书与原版不同，**不能覆盖安装原版**。必须先卸载原版——这会清掉本地数据库里的
 主机、凭据和已知主机密钥。
 
 ```bash
 adb uninstall com.sonelli.juicessh
 adb install dist/JuiceSSH-3.2.2-community.apk
 ```
+
+已经装了上一版社区构建（`3.2.2-community`，versionCode 210）的，直接
+`adb install -r` 即可升级：签名相同、versionCode 211 更高。
 
 ## 回归检查清单
 
@@ -175,9 +240,12 @@ adb install dist/JuiceSSH-3.2.2-community.apk
 - [x] 主机密钥指纹弹出且与服务器官方指纹一致
 - [x] 终端里本地 shell 可用（`/system/bin/sh`，提示符正常）
 - [x] 主界面不再出现「解锁 Pro」「云同步」「团队共享」「书城」卡片
+- [ ] 首次启动弹出通知权限申请，允许后会话通知可见（渠道 importance 已修为 LOW）
 - [ ] SFTP 下载文件落在 `Android/data/com.sonelli.juicessh/files/`
 - [ ] 端口转发可用（Pro 门禁已解锁）
 - [ ] 通知点击能回到对应会话（`PendingIntent` 补丁生效）
+- [ ] 会话挂机超过 6 小时不被系统掐断（`specialUse` 前台服务）
+- [ ] 第三方 App 无法直接拉起 `PurchaseActivity` / `LogViewerActivity`（导出已关闭）
 - [ ] 冷启动时没有长时间卡顿（不会再有指向死域名的 10 秒超时）
 - [ ] telnet 连接（**已知不可用**，见上）
 
