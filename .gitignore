@@ -1,0 +1,21 @@
+# build inputs the user must supply
+tools/*.jar
+
+# never commit build artefacts
+work/
+dist/
+build/
+*.apk
+roundtrip/
+
+# local signing material
+keystore/
+*.jks
+*.keystore
+
+# apktool framework cache
+.home/
+
+# python
+__pycache__/
+*.pyc

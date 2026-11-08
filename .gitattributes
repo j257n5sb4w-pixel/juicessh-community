@@ -1,0 +1,9 @@
+* text=auto
+
+# The patch carries smali hunks that reference CRLF content; any
+# line-ending mangling makes it fail to apply. Keep it byte-exact.
+*.patch -text
+*.sh text eol=lf
+*.py text eol=lf
+*.java text eol=lf
+*.md text eol=lf

@@ -1,0 +1,1679 @@
+diff -ruN '--exclude=build' dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
+--- dec.orig/AndroidManifest.xml	2026-11-08 13:03:04.360795000 +0800
++++ dec/AndroidManifest.xml	2026-11-08 13:59:42.050574100 +0800
+@@ -17,6 +17,9 @@
+     <permission android:name="com.sonelli.juicessh.api.v1.permission.JUICESSH_ONLY" android:protectionLevel="signature"/>
+     <permission android:label="@string/juicessh_plugin_log_read_only" android:name="com.sonelli.juicessh.api.v1.permission.READ_PLUGIN_LOG"/>
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
++    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+     <uses-permission android:name="android.permission.INTERNET"/>
+     <uses-permission android:name="com.sonelli.juicessh.permission.C2D_MESSAGE"/>
+     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
+@@ -29,7 +32,7 @@
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT"/>
+     <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"/>
+-    <application android:allowBackup="false" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:extractNativeLibs="true" android:hardwareAccelerated="true" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:largeHeap="true" android:name="com.sonelli.juicessh.controllers.ApplicationClass" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/Theme.JuiceSSH.Material" android:usesCleartextTraffic="true">
++    <application android:allowBackup="false" android:appComponentFactory="androidx.core.app.CoreComponentFactory" android:extractNativeLibs="true" android:hardwareAccelerated="true" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:largeHeap="true" android:name="com.sonelli.juicessh.controllers.ApplicationClass" android:pageSizeCompat="enabled" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/Theme.JuiceSSH.Material" android:usesCleartextTraffic="true">
+         <service android:enabled="true" android:exported="true" android:name="com.sonelli.juicessh.services.ConnectionPluginService" android:permission="com.sonelli.juicessh.api.v1.permission.OPEN_SESSIONS">
+             <intent-filter>
+                 <action android:name="com.sonelli.juicessh.connectionpluginservice"/>
+@@ -70,14 +73,14 @@
+                 <action android:name="com.sonelli.juicessh.action.SFTP_RESUME"/>
+             </intent-filter>
+         </receiver>
+-        <receiver android:name="com.sonelli.juicessh.receivers.PushNotificationReceiver" android:permission="com.google.android.c2dm.permission.SEND">
++        <receiver android:exported="true" android:name="com.sonelli.juicessh.receivers.PushNotificationReceiver" android:permission="com.google.android.c2dm.permission.SEND">
+             <intent-filter>
+                 <action android:name="com.google.android.c2dm.intent.RECEIVE"/>
+                 <action android:name="com.google.android.c2dm.intent.REGISTRATION"/>
+                 <category android:name="com.sonelli.juicessh"/>
+             </intent-filter>
+         </receiver>
+-        <receiver android:enabled="true" android:name="com.sonelli.juicessh.widgets.ConnectionWidgetProvider">
++        <receiver android:enabled="true" android:exported="true" android:name="com.sonelli.juicessh.widgets.ConnectionWidgetProvider">
+             <intent-filter>
+                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+             </intent-filter>
+@@ -97,7 +100,7 @@
+                 <category android:name="android.intent.category.DEFAULT"/>
+             </intent-filter>
+         </service>
+-        <service android:enabled="true" android:exported="false" android:name="com.sonelli.juicessh.connections.ConnectionManagerService">
++        <service android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync|connectedDevice" android:name="com.sonelli.juicessh.connections.ConnectionManagerService">
+             <intent-filter>
+                 <action android:name="com.sonelli.juicessh.connections.ConnectionManagerService"/>
+                 <category android:name="android.intent.category.DEFAULT"/>
+@@ -114,7 +117,7 @@
+             </intent-filter>
+             <meta-data android:name="android.support.PARENT_ACTIVITY" android:value="activities.MainActivity"/>
+         </activity>
+-        <activity android:label="@string/juicessh" android:name="com.sonelli.juicessh.activities.MainActivity" android:windowSoftInputMode="stateAlwaysHidden">
++        <activity android:exported="true" android:label="@string/juicessh" android:name="com.sonelli.juicessh.activities.MainActivity" android:windowSoftInputMode="stateAlwaysHidden">
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN"/>
+                 <category android:name="android.intent.category.LAUNCHER"/>
+diff -ruN '--exclude=build' dec.orig/apktool.yml dec/apktool.yml
+--- dec.orig/apktool.yml	2026-11-08 13:03:07.057419200 +0800
++++ dec/apktool.yml	2026-11-08 13:58:37.997832700 +0800
+@@ -5,10 +5,10 @@
+   - 1
+ sdkInfo:
+   minSdkVersion: 26
+-  targetSdkVersion: 29
++  targetSdkVersion: 35
+ versionInfo:
+-  versionCode: 200
+-  versionName: 3.2.2
++  versionCode: 210
++  versionName: 3.2.2-community
+ resourcesInfo:
+   packageId: 127
+ doNotCompress:
+diff -ruN '--exclude=build' dec.orig/smali/android/support/v4/media/session/MediaSessionCompat.smali dec/smali/android/support/v4/media/session/MediaSessionCompat.smali
+--- dec.orig/smali/android/support/v4/media/session/MediaSessionCompat.smali	2026-11-08 13:03:01.378241700 +0800
++++ dec/smali/android/support/v4/media/session/MediaSessionCompat.smali	2026-11-08 14:14:47.645631700 +0800
+@@ -324,7 +324,7 @@
+ .end method
+ 
+ .method private constructor <init>(Landroid/content/Context;Ljava/lang/String;Landroid/content/ComponentName;Landroid/app/PendingIntent;Landroid/os/Bundle;)V
+-    .locals 2
++    .locals 3
+ 
+     .line 4
+     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+@@ -379,7 +379,8 @@
+     const/4 v0, 0x0
+ 
+     .line 11
+-    invoke-static {p1, v0, p4, v0}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v2, 0x4000000
++    invoke-static {p1, v0, p4, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p4
+ 
+diff -ruN '--exclude=build' dec.orig/smali/androidx/appcompat/widget/SearchView.smali dec/smali/androidx/appcompat/widget/SearchView.smali
+--- dec.orig/smali/androidx/appcompat/widget/SearchView.smali	2026-11-08 13:03:01.767064000 +0800
++++ dec/smali/androidx/appcompat/widget/SearchView.smali	2026-11-08 14:14:47.677632100 +0800
+@@ -949,7 +949,7 @@
+ .end method
+ 
+ .method private createVoiceAppSearchIntent(Landroid/content/Intent;Landroid/app/SearchableInfo;)Landroid/content/Intent;
+-    .locals 9
++    .locals 10
+ 
+     .line 1
+     invoke-virtual {p2}, Landroid/app/SearchableInfo;->getSearchActivity()Landroid/content/ComponentName;
+@@ -975,7 +975,9 @@
+ 
+     const/high16 v4, 0x40000000    # 2.0f
+ 
+-    invoke-static {v2, v3, v1, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    or-int v9, v4, v9
++    invoke-static {v2, v3, v1, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/androidx/core/app/TaskStackBuilder.smali dec/smali/androidx/core/app/TaskStackBuilder.smali
+--- dec.orig/smali/androidx/core/app/TaskStackBuilder.smali	2026-11-08 13:03:01.954792800 +0800
++++ dec/smali/androidx/core/app/TaskStackBuilder.smali	2026-11-08 14:14:47.693636200 +0800
+@@ -441,7 +441,7 @@
+ .end method
+ 
+ .method public getPendingIntent(IILandroid/os/Bundle;)Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+     .param p3    # Landroid/os/Bundle;
+         .annotation build Landroidx/annotation/Nullable;
+         .end annotation
+@@ -500,7 +500,9 @@
+     .line 6
+     iget-object v1, p0, Landroidx/core/app/TaskStackBuilder;->mSourceContext:Landroid/content/Context;
+ 
+-    invoke-static {v1, p1, v0, p2, p3}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    or-int v4, p2, v4
++    invoke-static {v1, p1, v0, v4, p3}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;ILandroid/os/Bundle;)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+@@ -510,7 +512,9 @@
+     :cond_0
+     iget-object p3, p0, Landroidx/core/app/TaskStackBuilder;->mSourceContext:Landroid/content/Context;
+ 
+-    invoke-static {p3, p1, v0, p2}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    or-int v4, p2, v4
++    invoke-static {p3, p1, v0, v4}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/androidx/media/session/MediaButtonReceiver.smali dec/smali/androidx/media/session/MediaButtonReceiver.smali
+--- dec.orig/smali/androidx/media/session/MediaButtonReceiver.smali	2026-11-08 13:03:02.459368700 +0800
++++ dec/smali/androidx/media/session/MediaButtonReceiver.smali	2026-11-08 14:14:47.740210500 +0800
+@@ -56,7 +56,7 @@
+ .end method
+ 
+ .method public static buildMediaButtonPendingIntent(Landroid/content/Context;Landroid/content/ComponentName;J)Landroid/app/PendingIntent;
+-    .locals 3
++    .locals 4
+ 
+     const/4 v0, 0x0
+ 
+@@ -121,7 +121,8 @@
+     invoke-virtual {p2, v0, p1}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Landroid/os/Parcelable;)Landroid/content/Intent;
+ 
+     .line 10
+-    invoke-static {p0, v2, p2, p3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x4000000
++    invoke-static {p0, v2, p2, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/google/android/gms/common/api/GoogleApiActivity.smali dec/smali/com/google/android/gms/common/api/GoogleApiActivity.smali
+--- dec.orig/smali/com/google/android/gms/common/api/GoogleApiActivity.smali	2026-11-08 13:03:03.136897200 +0800
++++ dec/smali/com/google/android/gms/common/api/GoogleApiActivity.smali	2026-11-08 14:14:47.802724800 +0800
+@@ -31,7 +31,7 @@
+ .end method
+ 
+ .method public static a(Landroid/content/Context;Landroid/app/PendingIntent;I)Landroid/app/PendingIntent;
+-    .locals 1
++    .locals 2
+ 
+     const/4 v0, 0x1
+ 
+@@ -45,7 +45,8 @@
+     const/high16 v0, 0x8000000
+ 
+     .line 2
+-    invoke-static {p0, p2, p1, v0}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v1, 0xc000000
++    invoke-static {p0, p2, p1, v1}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/be0.smali dec/smali/com/sonelli/be0.smali
+--- dec.orig/smali/com/sonelli/be0.smali	2026-11-08 13:03:04.293812200 +0800
++++ dec/smali/com/sonelli/be0.smali	2026-11-08 14:14:47.893231200 +0800
+@@ -116,7 +116,7 @@
+ .end method
+ 
+ .method public static declared-synchronized c(Landroid/content/Context;Landroid/content/Intent;)V
+-    .locals 3
++    .locals 4
+ 
+     const-class v0, Lcom/sonelli/be0;
+ 
+@@ -141,7 +141,8 @@
+     const/4 v2, 0x0
+ 
+     .line 4
+-    invoke-static {p0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x4000000
++    invoke-static {p0, v2, v1, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/ei0.smali dec/smali/com/sonelli/ei0.smali
+--- dec.orig/smali/com/sonelli/ei0.smali	2026-11-08 13:03:04.524015900 +0800
++++ dec/smali/com/sonelli/ei0.smali	2026-11-08 14:14:47.910738800 +0800
+@@ -452,7 +452,7 @@
+ .end method
+ 
+ .method public m()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 7
++    .locals 9
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->b:Landroidx/core/app/NotificationCompat$Builder;
+@@ -540,7 +540,8 @@
+ 
+     const/4 v4, 0x0
+ 
+-    invoke-static {v2, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v2, v4, v0, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -616,7 +617,8 @@
+     .line 17
+     iget-object v1, p0, Lcom/sonelli/ei0;->d:Landroidx/fragment/app/FragmentActivity;
+ 
+-    invoke-static {v1, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0x4000000
++    invoke-static {v1, v4, v0, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -730,7 +732,7 @@
+ .end method
+ 
+ .method public n()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 7
++    .locals 9
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->a:Landroidx/core/app/NotificationCompat$Builder;
+@@ -885,14 +887,16 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v2, v3, v0, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+     .line 13
+     iget-object v2, p0, Lcom/sonelli/ei0;->d:Landroidx/fragment/app/FragmentActivity;
+ 
+-    invoke-static {v2, v3, v1, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0x4000000
++    invoke-static {v2, v3, v1, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/gi0.smali dec/smali/com/sonelli/gi0.smali
+--- dec.orig/smali/com/sonelli/gi0.smali	2026-11-08 13:03:04.650204600 +0800
++++ dec/smali/com/sonelli/gi0.smali	2026-11-08 14:14:47.922738100 +0800
+@@ -464,7 +464,7 @@
+ .end method
+ 
+ .method public m()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 8
++    .locals 10
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/gi0;->l:Lcom/sonelli/juicessh/models/PortForward;
+@@ -547,7 +547,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {v2, v3, v0, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -658,7 +659,8 @@
+ 
+     invoke-direct {v7}, Landroid/content/Intent;-><init>()V
+ 
+-    invoke-static {v0, v3, v7, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v0, v3, v7, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -716,7 +718,7 @@
+ .end method
+ 
+ .method public n()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 8
++    .locals 11
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/gi0;->l:Lcom/sonelli/juicessh/models/PortForward;
+@@ -822,7 +824,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v10, 0x4000000
++    invoke-static {v2, v3, v0, v10}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -989,7 +992,8 @@
+ 
+     move-result-object v0
+ 
+-    invoke-static {v0, v3, v4, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {v0, v3, v4, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -1008,7 +1012,8 @@
+ 
+     invoke-direct {v4}, Landroid/content/Intent;-><init>()V
+ 
+-    invoke-static {v0, v3, v4, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v0, v3, v4, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/h1.smali dec/smali/com/sonelli/h1.smali
+--- dec.orig/smali/com/sonelli/h1.smali	2026-11-08 13:03:04.690432100 +0800
++++ dec/smali/com/sonelli/h1.smali	2026-11-08 14:14:47.927738400 +0800
+@@ -78,7 +78,7 @@
+ 
+ # virtual methods
+ .method public a(Lcom/sonelli/i0;I)V
+-    .locals 9
++    .locals 10
+ 
+     .line 1
+     new-instance v0, Landroid/net/Uri$Builder;
+@@ -234,7 +234,8 @@
+     .line 20
+     iget-object p1, p0, Lcom/sonelli/h1;->a:Landroid/content/Context;
+ 
+-    invoke-static {p1, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {p1, v2, v1, v9}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+@@ -257,7 +258,7 @@
+ .end method
+ 
+ .method public b(Landroid/content/Intent;)Z
+-    .locals 3
++    .locals 4
+     .annotation build Landroidx/annotation/VisibleForTesting;
+     .end annotation
+ 
+@@ -268,7 +269,8 @@
+ 
+     const/high16 v2, 0x20000000
+ 
+-    invoke-static {v0, v1, p1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x24000000
++    invoke-static {v0, v1, p1, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/hi0.smali dec/smali/com/sonelli/hi0.smali
+--- dec.orig/smali/com/sonelli/hi0.smali	2026-11-08 13:03:04.721128900 +0800
++++ dec/smali/com/sonelli/hi0.smali	2026-11-08 14:14:47.929738200 +0800
+@@ -184,7 +184,7 @@
+ .end method
+ 
+ .method public m()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 8
++    .locals 10
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->b:Landroidx/core/app/NotificationCompat$Builder;
+@@ -280,7 +280,8 @@
+ 
+     const/4 v4, 0x0
+ 
+-    invoke-static {v2, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {v2, v4, v0, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -368,7 +369,8 @@
+ 
+     move-result-object v1
+ 
+-    invoke-static {v1, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v1, v4, v0, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -520,7 +522,7 @@
+ .end method
+ 
+ .method public n()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 8
++    .locals 10
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->a:Landroidx/core/app/NotificationCompat$Builder;
+@@ -689,7 +691,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {v2, v3, v0, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -698,7 +701,8 @@
+ 
+     move-result-object v2
+ 
+-    invoke-static {v2, v3, v1, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v2, v3, v1, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/ii0.smali dec/smali/com/sonelli/ii0.smali
+--- dec.orig/smali/com/sonelli/ii0.smali	2026-11-08 13:03:04.773827800 +0800
++++ dec/smali/com/sonelli/ii0.smali	2026-11-08 14:14:47.935739200 +0800
+@@ -367,7 +367,7 @@
+ .end method
+ 
+ .method public m()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 7
++    .locals 9
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->b:Landroidx/core/app/NotificationCompat$Builder;
+@@ -463,7 +463,8 @@
+ 
+     const/4 v4, 0x0
+ 
+-    invoke-static {v2, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v2, v4, v0, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -551,7 +552,8 @@
+ 
+     move-result-object v1
+ 
+-    invoke-static {v1, v4, v0, v4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0x4000000
++    invoke-static {v1, v4, v0, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -675,7 +677,7 @@
+ .end method
+ 
+ .method public n()Landroidx/core/app/NotificationCompat$Builder;
+-    .locals 7
++    .locals 9
+ 
+     .line 1
+     iget-object v0, p0, Lcom/sonelli/mi0;->a:Landroidx/core/app/NotificationCompat$Builder;
+@@ -844,7 +846,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v0, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v2, v3, v0, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -853,7 +856,8 @@
+ 
+     move-result-object v2
+ 
+-    invoke-static {v2, v3, v1, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0x4000000
++    invoke-static {v2, v3, v1, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali dec/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali
+--- dec.orig/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali	2026-11-08 13:03:04.877312900 +0800
++++ dec/smali/com/sonelli/juicessh/activities/AddressBookActivity.smali	2026-11-08 14:14:48.049247300 +0800
+@@ -531,7 +531,7 @@
+ .end method
+ 
+ .method public onContextItemSelected(Landroid/view/MenuItem;)Z
+-    .locals 16
++    .locals 18
+ 
+     move-object/from16 v1, p0
+ 
+@@ -873,7 +873,8 @@
+     move-result-object v3
+ 
+     .line 27
+-    invoke-static {v1, v14, v3, v14}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v6, 0x4000000
++    invoke-static {v1, v14, v3, v6}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v3
+ 
+@@ -1889,7 +1890,8 @@
+     move-result-object v2
+ 
+     .line 123
+-    invoke-static {v1, v14, v2, v14}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v5, 0x4000000
++    invoke-static {v1, v14, v2, v5}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v2
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/activities/MainActivity.smali dec/smali/com/sonelli/juicessh/activities/MainActivity.smali
+--- dec.orig/smali/com/sonelli/juicessh/activities/MainActivity.smali	2026-11-08 13:03:04.893828600 +0800
++++ dec/smali/com/sonelli/juicessh/activities/MainActivity.smali	2026-11-08 14:00:32.694788800 +0800
+@@ -53,40 +53,13 @@
+ 
+     .line 1
+     :pswitch_0
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-class v0, Lcom/sonelli/juicessh/activities/BookclubActivity;
+-
+-    invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+-
+-    .line 2
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 3
++    .line 2
+     :pswitch_1
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-string v0, "android.intent.action.VIEW"
+-
+-    invoke-direct {p1, v0}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+-
+-    const-string v0, "https://sonelli.com/faq"
+-
+-    .line 4
+-    invoke-static {v0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {p1, v0}, Landroid/content/Intent;->setData(Landroid/net/Uri;)Landroid/content/Intent;
+-
+-    .line 5
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 6
++    .line 3
+     :pswitch_2
+     new-instance p1, Landroid/content/Intent;
+ 
+@@ -94,64 +67,27 @@
+ 
+     invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+ 
+-    .line 7
+     invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+ 
+     goto :goto_0
+ 
+-    .line 8
++    .line 4
+     :pswitch_3
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-class v0, Lcom/sonelli/juicessh/activities/TeamShareActivity;
+-
+-    invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+-
+-    .line 9
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 10
++    .line 5
+     :pswitch_4
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-class v0, Lcom/sonelli/juicessh/activities/ManageCloudSyncActivity;
+-
+-    invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+-
+-    .line 11
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 12
++    .line 6
+     :pswitch_5
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-class v0, Lcom/sonelli/juicessh/activities/PurchaseActivity;
+-
+-    invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+-
+-    .line 13
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 14
++    .line 7
+     :pswitch_6
+-    new-instance p1, Landroid/content/Intent;
+-
+-    const-class v0, Lcom/sonelli/juicessh/activities/PluginsActivity;
+-
+-    invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+-
+-    .line 15
+-    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+-
+     goto :goto_0
+ 
+-    .line 16
++    .line 8
+     :pswitch_7
+     new-instance p1, Landroid/content/Intent;
+ 
+@@ -159,7 +95,6 @@
+ 
+     invoke-direct {p1, p0, v0}, Landroid/content/Intent;-><init>(Landroid/content/Context;Ljava/lang/Class;)V
+ 
+-    .line 17
+     invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
+ 
+     :goto_0
+@@ -267,170 +202,14 @@
+ .method public n()V
+     .locals 2
+ 
+-    .line 1
+-    invoke-static {}, Lcom/sonelli/kj0;->a()Lcom/sonelli/kj0;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Lcom/sonelli/kj0;->f()Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_1
+-
+-    .line 2
+-    new-instance v0, Lcom/sonelli/juicessh/views/CardListItem;
+-
+-    const/4 v1, 0x5
+-
+-    invoke-direct {v0, p0, v1}, Lcom/sonelli/juicessh/views/CardListItem;-><init>(Landroid/content/Context;I)V
+-
+-    .line 3
+-    invoke-virtual {v0, p0}, Lcom/sonelli/juicessh/views/CardListItem;->r(Lcom/sonelli/juicessh/views/CardListItem$OnClickListener;)V
+-
+-    const v1, 0x7f110070
+-
+-    .line 4
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->t(Ljava/lang/String;)V
+-
+-    const-string v1, "cloudsync:enabled"
+-
+-    .line 5
+-    invoke-static {p0, v1}, Lcom/sonelli/juicessh/models/Config;->e(Landroid/content/Context;Ljava/lang/String;)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_0
+-
+-    .line 6
+-    invoke-static {p0}, Lcom/sonelli/juicessh/services/CloudSync;->b(Landroid/content/Context;)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    goto :goto_0
+-
+-    :cond_0
+-    const v1, 0x7f110071
+-
+-    .line 7
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    :goto_0
+-    const v1, 0x7f110184
+-
+-    .line 8
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->p(I)V
+-
+-    .line 9
+-    iget-object v1, p0, Lcom/sonelli/juicessh/activities/MainActivity;->R:Lcom/sonelli/gh0;
+-
+-    invoke-virtual {v1, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
+-    .line 10
+-    :cond_1
+-    invoke-static {}, Lcom/sonelli/kj0;->a()Lcom/sonelli/kj0;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Lcom/sonelli/kj0;->z()Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_2
+-
+-    .line 11
+-    new-instance v0, Lcom/sonelli/juicessh/views/CardListItem;
+-
+-    const/4 v1, 0x6
+-
+-    invoke-direct {v0, p0, v1}, Lcom/sonelli/juicessh/views/CardListItem;-><init>(Landroid/content/Context;I)V
+-
+-    .line 12
+-    invoke-virtual {v0, p0}, Lcom/sonelli/juicessh/views/CardListItem;->r(Lcom/sonelli/juicessh/views/CardListItem$OnClickListener;)V
+-
+-    const v1, 0x7f1103c8
+-
+-    .line 13
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->t(Ljava/lang/String;)V
+-
+-    const v1, 0x7f11039d
+-
+-    .line 14
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    const v1, 0x7f1101cf
+-
+-    .line 15
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->p(I)V
+-
+-    .line 16
+-    iget-object v1, p0, Lcom/sonelli/juicessh/activities/MainActivity;->R:Lcom/sonelli/gh0;
+-
+-    invoke-virtual {v1, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
+-    :cond_2
++    .line 99
+     return-void
+ .end method
+ 
+ .method public o()V
+     .locals 2
+ 
+-    .line 1
+-    new-instance v0, Lcom/sonelli/juicessh/views/CardListItem;
+-
+-    const/4 v1, 0x4
+-
+-    invoke-direct {v0, p0, v1}, Lcom/sonelli/juicessh/views/CardListItem;-><init>(Landroid/content/Context;I)V
+-
+-    .line 2
+-    invoke-virtual {v0, p0}, Lcom/sonelli/juicessh/views/CardListItem;->r(Lcom/sonelli/juicessh/views/CardListItem$OnClickListener;)V
+-
+-    const v1, 0x7f1103eb
+-
+-    .line 3
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->t(Ljava/lang/String;)V
+-
+-    const v1, 0x7f11006e
+-
+-    .line 4
+-    invoke-virtual {p0, v1}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    const v1, 0x7f11026a
+-
+-    .line 5
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->p(I)V
+-
+-    .line 6
+-    iget-object v1, p0, Lcom/sonelli/juicessh/activities/MainActivity;->R:Lcom/sonelli/gh0;
+-
+-    invoke-virtual {v1, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
++    .line 99
+     return-void
+ .end method
+ 
+@@ -497,64 +276,7 @@
+ .method public p(Lcom/sonelli/juicessh/views/CardListItem;)V
+     .locals 4
+ 
+-    .line 1
+-    invoke-static {p0}, Landroid/preference/PreferenceManager;->getDefaultSharedPreferences(Landroid/content/Context;)Landroid/content/SharedPreferences;
+-
+-    move-result-object p1
+-
+-    const-string v0, "bookclub:new"
+-
+-    const/4 v1, 0x0
+-
+-    .line 2
+-    invoke-interface {p1, v0, v1}, Landroid/content/SharedPreferences;->getBoolean(Ljava/lang/String;Z)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_0
+-
+-    return-void
+-
+-    .line 3
+-    :cond_0
+-    new-instance v0, Landroid/os/Handler;
+-
+-    invoke-direct {v0}, Landroid/os/Handler;-><init>()V
+-
+-    .line 4
+-    new-instance v1, Lcom/sonelli/wg0;
+-
+-    invoke-direct {v1}, Lcom/sonelli/wg0;-><init>()V
+-
+-    .line 5
+-    invoke-virtual {p0}, Landroidx/appcompat/app/AppCompatActivity;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v2}, Landroid/content/res/Resources;->getConfiguration()Landroid/content/res/Configuration;
+-
+-    move-result-object v2
+-
+-    iget-object v2, v2, Landroid/content/res/Configuration;->locale:Ljava/util/Locale;
+-
+-    invoke-virtual {v2}, Ljava/util/Locale;->getCountry()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    const-string v3, "requested-location"
+-
+-    .line 6
+-    invoke-virtual {v1, v3, v2}, Lcom/sonelli/wg0;->c(Ljava/lang/String;Ljava/lang/String;)V
+-
+-    .line 7
+-    new-instance v2, Lcom/sonelli/juicessh/activities/MainActivity$f;
+-
+-    invoke-direct {v2, p0, p1, v0}, Lcom/sonelli/juicessh/activities/MainActivity$f;-><init>(Lcom/sonelli/juicessh/activities/MainActivity;Landroid/content/SharedPreferences;Landroid/os/Handler;)V
+-
+-    const-string p1, "https://api.sonelli.com/bookclub"
+-
+-    invoke-virtual {v1, p0, p1, v2}, Lcom/sonelli/wg0;->e(Landroid/content/Context;Ljava/lang/String;Lcom/sonelli/yg0;)V
+-
++    .line 99
+     return-void
+ .end method
+ 
+@@ -830,113 +552,6 @@
+ 
+     invoke-virtual {v2, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+ 
+-    .line 40
+-    invoke-static {}, Lcom/sonelli/kj0;->a()Lcom/sonelli/kj0;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Lcom/sonelli/kj0;->s()Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_0
+-
+-    .line 41
+-    new-instance v0, Lcom/sonelli/juicessh/views/CardListItem;
+-
+-    invoke-direct {v0, p0, v4}, Lcom/sonelli/juicessh/views/CardListItem;-><init>(Landroid/content/Context;I)V
+-
+-    .line 42
+-    invoke-virtual {v0, p0}, Lcom/sonelli/juicessh/views/CardListItem;->r(Lcom/sonelli/juicessh/views/CardListItem$OnClickListener;)V
+-
+-    const v2, 0x7f110348
+-
+-    .line 43
+-    invoke-virtual {p0, v2}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->t(Ljava/lang/String;)V
+-
+-    const v2, 0x7f1100f8
+-
+-    .line 44
+-    invoke-virtual {p0, v2}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    const v2, 0x7f11021a
+-
+-    .line 45
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->p(I)V
+-
+-    .line 46
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->l(Z)V
+-
+-    .line 47
+-    iget-object v2, p0, Lcom/sonelli/juicessh/activities/MainActivity;->R:Lcom/sonelli/gh0;
+-
+-    invoke-virtual {v2, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
+-    .line 48
+-    :cond_0
+-    invoke-static {}, Lcom/sonelli/kj0;->a()Lcom/sonelli/kj0;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {v0, p0}, Lcom/sonelli/kj0;->e(Landroid/content/Context;)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_1
+-
+-    .line 49
+-    new-instance v0, Lcom/sonelli/juicessh/views/CardListItem;
+-
+-    const/16 v2, 0x9
+-
+-    invoke-direct {v0, p0, v2}, Lcom/sonelli/juicessh/views/CardListItem;-><init>(Landroid/content/Context;I)V
+-
+-    .line 50
+-    invoke-virtual {v0, p0}, Lcom/sonelli/juicessh/views/CardListItem;->r(Lcom/sonelli/juicessh/views/CardListItem$OnClickListener;)V
+-
+-    const v2, 0x7f110056
+-
+-    .line 51
+-    invoke-virtual {p0, v2}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->t(Ljava/lang/String;)V
+-
+-    const v2, 0x7f11010e
+-
+-    .line 52
+-    invoke-virtual {p0, v2}, Landroid/app/Activity;->getString(I)Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->s(Ljava/lang/String;)V
+-
+-    const v2, 0x7f110161
+-
+-    .line 53
+-    invoke-virtual {v0, v2}, Lcom/sonelli/juicessh/views/CardListItem;->p(I)V
+-
+-    .line 54
+-    invoke-virtual {v0, v1}, Lcom/sonelli/juicessh/views/CardListItem;->l(Z)V
+-
+-    .line 55
+-    iget-object v1, p0, Lcom/sonelli/juicessh/activities/MainActivity;->R:Lcom/sonelli/gh0;
+-
+-    invoke-virtual {v1, v0}, Lcom/sonelli/gh0;->a(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
+-    .line 56
+-    invoke-virtual {p0, v0}, Lcom/sonelli/juicessh/activities/MainActivity;->p(Lcom/sonelli/juicessh/views/CardListItem;)V
+-
+-    :cond_1
+     return-void
+ .end method
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali dec/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali
+--- dec.orig/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali	2026-11-08 13:03:04.965237500 +0800
++++ dec/smali/com/sonelli/juicessh/controllers/ApplicationClass.smali	2026-11-08 14:00:32.725083200 +0800
+@@ -93,61 +93,5 @@
+     invoke-super {p0}, Landroid/app/Application;->onCreate()V
+ 
+     .line 2
+-    new-instance v0, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;
+-
+-    sget-object v1, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions;->e0:Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions;
+-
+-    invoke-direct {v0, v1}, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;-><init>(Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions;)V
+-
+-    .line 3
+-    invoke-virtual {v0}, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;->b()Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;
+-
+-    const-string v1, "425124909500-6umqqdtq7q4tr7c85hfic2fupfss16io.apps.googleusercontent.com"
+-
+-    .line 4
+-    invoke-virtual {v0, v1}, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;->d(Ljava/lang/String;)Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;
+-
+-    .line 5
+-    invoke-virtual {v0}, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;->e()Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;
+-
+-    .line 6
+-    invoke-virtual {v0}, Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions$a;->a()Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions;
+-
+-    move-result-object v0
+-
+-    .line 7
+-    invoke-virtual {p0}, Landroid/app/Application;->getApplicationContext()Landroid/content/Context;
+-
+-    move-result-object v1
+-
+-    invoke-static {v1, v0}, Lcom/sonelli/j5;->a(Landroid/content/Context;Lcom/google/android/gms/auth/api/signin/GoogleSignInOptions;)Lcom/sonelli/k5;
+-
+-    move-result-object v0
+-
+-    sput-object v0, Lcom/sonelli/juicessh/controllers/ApplicationClass;->Q:Lcom/sonelli/k5;
+-
+-    .line 8
+-    invoke-static {p0}, Lcom/google/android/gms/analytics/GoogleAnalytics;->k(Landroid/content/Context;)Lcom/google/android/gms/analytics/GoogleAnalytics;
+-
+-    move-result-object v0
+-
+-    sput-object v0, Lcom/sonelli/juicessh/controllers/ApplicationClass;->O:Lcom/google/android/gms/analytics/GoogleAnalytics;
+-
+-    .line 9
+-    invoke-virtual {p0}, Landroid/app/Application;->getApplicationContext()Landroid/content/Context;
+-
+-    move-result-object v0
+-
+-    const-wide/32 v1, 0x5265c00
+-
+-    invoke-static {v0, v1, v2}, Lcom/sonelli/juicessh/services/CloudSync;->i(Landroid/content/Context;J)V
+-
+-    .line 10
+-    invoke-virtual {p0}, Landroid/app/Application;->getApplicationContext()Landroid/content/Context;
+-
+-    move-result-object v0
+-
+-    invoke-static {v0, v1, v2}, Lcom/sonelli/juicessh/services/Ec2Link;->d(Landroid/content/Context;J)V
+-
+     return-void
+ .end method
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/models/TeamMembership.smali dec/smali/com/sonelli/juicessh/models/TeamMembership.smali
+--- dec.orig/smali/com/sonelli/juicessh/models/TeamMembership.smali	2026-11-08 13:03:05.017490600 +0800
++++ dec/smali/com/sonelli/juicessh/models/TeamMembership.smali	2026-11-08 14:14:48.061247400 +0800
+@@ -254,7 +254,7 @@
+ .end method
+ 
+ .method public static u(Lorg/json/JSONObject;Lorg/json/JSONObject;Lorg/json/JSONObject;Lcom/sonelli/juicessh/models/User;Landroid/content/Context;)V
+-    .locals 17
++    .locals 20
+ 
+     move-object/from16 v0, p0
+ 
+@@ -695,7 +695,8 @@
+     invoke-virtual {v2, v10}, Landroid/content/Intent;->setFlags(I)Landroid/content/Intent;
+ 
+     .line 43
+-    invoke-static {v9, v6, v2, v6}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v13, 0x4000000
++    invoke-static {v9, v6, v2, v13}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v2
+ 
+@@ -752,7 +753,8 @@
+     invoke-virtual {v13, v10}, Landroid/content/Intent;->setFlags(I)Landroid/content/Intent;
+ 
+     .line 50
+-    invoke-static {v9, v6, v13, v6}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {v9, v6, v13, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v5
+ 
+@@ -822,7 +824,8 @@
+     invoke-virtual {v2, v10}, Landroid/content/Intent;->setFlags(I)Landroid/content/Intent;
+ 
+     .line 56
+-    invoke-static {v9, v6, v2, v6}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v5, 0x4000000
++    invoke-static {v9, v6, v2, v5}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v2
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/services/CloudSync.smali dec/smali/com/sonelli/juicessh/services/CloudSync.smali
+--- dec.orig/smali/com/sonelli/juicessh/services/CloudSync.smali	2026-11-08 13:03:05.080684500 +0800
++++ dec/smali/com/sonelli/juicessh/services/CloudSync.smali	2026-11-08 14:14:48.068251500 +0800
+@@ -589,7 +589,7 @@
+ .end method
+ 
+ .method public static e(Lcom/sonelli/juicessh/models/Team;Landroid/content/Context;)V
+-    .locals 9
++    .locals 10
+ 
+     const-string v0, "notification"
+ 
+@@ -617,7 +617,8 @@
+     const/4 v2, 0x0
+ 
+     .line 4
+-    invoke-static {p1, v2, v1, v2}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0x4000000
++    invoke-static {p1, v2, v1, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/services/Ec2Link.smali dec/smali/com/sonelli/juicessh/services/Ec2Link.smali
+--- dec.orig/smali/com/sonelli/juicessh/services/Ec2Link.smali	2026-11-08 13:03:05.090434800 +0800
++++ dec/smali/com/sonelli/juicessh/services/Ec2Link.smali	2026-11-08 14:14:48.069251100 +0800
+@@ -156,7 +156,7 @@
+ .end method
+ 
+ .method public static e(Landroid/content/Context;Lcom/sonelli/juicessh/models/ec2link/Ec2Profile;Ljava/lang/String;)V
+-    .locals 8
++    .locals 9
+ 
+     const-string v0, "notifications:enabled"
+ 
+@@ -306,7 +306,8 @@
+     invoke-virtual {v2, v6}, Landroid/content/Intent;->setFlags(I)Landroid/content/Intent;
+ 
+     .line 15
+-    invoke-static {p0, v3, v2, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {p0, v3, v2, v8}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v2
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali dec/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali
+--- dec.orig/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali	2026-11-08 13:03:05.138770100 +0800
++++ dec/smali/com/sonelli/juicessh/widgets/ConnectionWidgetProvider.smali	2026-11-08 14:14:48.073247500 +0800
+@@ -36,7 +36,7 @@
+ 
+ # virtual methods
+ .method public final a(Landroid/content/Context;I)Landroid/widget/RemoteViews;
+-    .locals 7
++    .locals 13
+     .annotation build Landroid/annotation/SuppressLint;
+         value = {
+             "NewApi"
+@@ -167,7 +167,8 @@
+ 
+     const/high16 v5, 0x8000000
+ 
+-    invoke-static {p1, v3, v1, v5}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v12, 0xc000000
++    invoke-static {p1, v3, v1, v12}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+@@ -196,7 +197,8 @@
+ 
+     long-to-int v3, v3
+ 
+-    invoke-static {p1, v3, v1, v5}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v11, 0xc000000
++    invoke-static {p1, v3, v1, v11}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+@@ -222,7 +224,8 @@
+ 
+     long-to-int p2, v2
+ 
+-    invoke-static {p1, p2, v1, v5}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v10, 0xc000000
++    invoke-static {p1, p2, v1, v10}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p2
+ 
+@@ -245,7 +248,8 @@
+ 
+     long-to-int v1, v1
+ 
+-    invoke-static {p1, v1, p2, v5}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v9, 0xc000000
++    invoke-static {p1, v1, p2, v9}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p2
+ 
+@@ -291,7 +295,8 @@
+ 
+     long-to-int v1, v1
+ 
+-    invoke-static {p1, v1, p2, v5}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0xc000000
++    invoke-static {p1, v1, p2, v8}, Landroid/app/PendingIntent;->getActivities(Landroid/content/Context;I[Landroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p2
+ 
+@@ -314,7 +319,8 @@
+ 
+     long-to-int v1, v1
+ 
+-    invoke-static {p1, v1, p2, v5}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0xc000000
++    invoke-static {p1, v1, p2, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/lh.smali dec/smali/com/sonelli/lh.smali
+--- dec.orig/smali/com/sonelli/lh.smali	2026-11-08 13:03:05.238710900 +0800
++++ dec/smali/com/sonelli/lh.smali	2026-11-08 14:14:47.953739200 +0800
+@@ -182,7 +182,9 @@
+     invoke-virtual {v1, v2}, Landroid/content/IntentFilter;->addCategory(Ljava/lang/String;)V
+ 
+     .line 8
+-    invoke-virtual {v0, p0, v1}, Landroid/content/Context;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
++    const/4 v2, 0x4
++
++    invoke-virtual {v0, p0, v1, v2}, Landroid/content/Context;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;I)Landroid/content/Intent;
+ 
+     .line 9
+     invoke-virtual {p0}, Lcom/sonelli/lh;->f()Z
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/m3.smali dec/smali/com/sonelli/m3.smali
+--- dec.orig/smali/com/sonelli/m3.smali	2026-11-08 13:03:05.391507500 +0800
++++ dec/smali/com/sonelli/m3.smali	2026-11-08 14:14:47.956738200 +0800
+@@ -246,7 +246,7 @@
+ .end method
+ 
+ .method public final c(Landroid/content/Context;Landroid/content/Intent;)V
+-    .locals 8
++    .locals 9
+ 
+     const-string v0, "registration_id"
+ 
+@@ -423,7 +423,8 @@
+     const/4 v2, 0x0
+ 
+     .line 19
+-    invoke-static {p1, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v8, 0x4000000
++    invoke-static {p1, v2, v1, v8}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/o3.smali dec/smali/com/sonelli/o3.smali
+--- dec.orig/smali/com/sonelli/o3.smali	2026-11-08 13:03:05.493385600 +0800
++++ dec/smali/com/sonelli/o3.smali	2026-11-08 14:14:47.968740500 +0800
+@@ -706,7 +706,7 @@
+ .end method
+ 
+ .method public static varargs j(Landroid/content/Context;[Ljava/lang/String;)V
+-    .locals 3
++    .locals 4
+ 
+     .line 1
+     invoke-static {p1}, Lcom/sonelli/o3;->g([Ljava/lang/String;)Ljava/lang/String;
+@@ -761,7 +761,8 @@
+ 
+     const/4 v2, 0x0
+ 
+-    invoke-static {p0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x4000000
++    invoke-static {p0, v2, v1, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+@@ -781,7 +782,7 @@
+ .end method
+ 
+ .method public static k(Landroid/content/Context;)V
+-    .locals 3
++    .locals 4
+ 
+     .line 1
+     new-instance v0, Ljava/lang/StringBuilder;
+@@ -825,7 +826,8 @@
+ 
+     const/4 v2, 0x0
+ 
+-    invoke-static {p0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x4000000
++    invoke-static {p0, v2, v1, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/oi0.smali dec/smali/com/sonelli/oi0.smali
+--- dec.orig/smali/com/sonelli/oi0.smali	2026-11-08 13:03:05.542567900 +0800
++++ dec/smali/com/sonelli/oi0.smali	2026-11-08 14:08:25.120541800 +0800
+@@ -341,145 +341,10 @@
+ .end method
+ 
+ .method public static d(Ljava/lang/Object;)Z
+-    .locals 5
++    .locals 1
+ 
+     .line 1
+-    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
++    const/4 v0, 0x1
+ 
+-    move-result-object v0
+-
+-    invoke-virtual {v0}, Ljava/lang/Class;->getName()Ljava/lang/String;
+-
+-    move-result-object v0
+-
+-    const-class v1, Lcom/sonelli/juicessh/models/User;
+-
+-    invoke-virtual {v1}, Ljava/lang/Class;->getName()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+-
+-    move-result v0
+-
+-    const/4 v1, 0x0
+-
+-    if-nez v0, :cond_0
+-
+-    return v1
+-
+-    .line 2
+-    :cond_0
+-    :try_start_0
+-    move-object v0, p0
+-
+-    check-cast v0, Lcom/sonelli/juicessh/models/User;
+-
+-    invoke-virtual {v0}, Lcom/sonelli/juicessh/models/User;->H()Z
+-
+-    move-result v0
+-
+-    if-nez v0, :cond_1
+-
+-    return v1
+-
+-    .line 3
+-    :cond_1
+-    new-instance v0, Ljava/util/ArrayList;
+-
+-    invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
+-
+-    .line 4
+-    check-cast p0, Lcom/sonelli/juicessh/models/User;
+-
+-    iget-object p0, p0, Lcom/sonelli/juicessh/models/User;->purchases:Lcom/j256/ormlite/dao/ForeignCollection;
+-
+-    invoke-interface {p0}, Ljava/util/Collection;->iterator()Ljava/util/Iterator;
+-
+-    move-result-object p0
+-
+-    :cond_2
+-    :goto_0
+-    invoke-interface {p0}, Ljava/util/Iterator;->hasNext()Z
+-
+-    move-result v2
+-
+-    if-eqz v2, :cond_3
+-
+-    invoke-interface {p0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+-
+-    move-result-object v2
+-
+-    check-cast v2, Lcom/sonelli/juicessh/models/Purchase;
+-
+-    .line 5
+-    iget-object v3, v2, Lcom/sonelli/juicessh/models/Purchase;->product:Ljava/lang/String;
+-
+-    invoke-static {}, Lcom/sonelli/oi0;->a()Ljava/lang/String;
+-
+-    move-result-object v4
+-
+-    invoke-virtual {v3, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+-
+-    move-result v3
+-
+-    if-eqz v3, :cond_2
+-
+-    .line 6
+-    invoke-virtual {v0, v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+-
+-    goto :goto_0
+-
+-    .line 7
+-    :cond_3
+-    new-instance p0, Lcom/sonelli/oi0$a;
+-
+-    invoke-direct {p0}, Lcom/sonelli/oi0$a;-><init>()V
+-
+-    invoke-static {v0, p0}, Ljava/util/Collections;->sort(Ljava/util/List;Ljava/util/Comparator;)V
+-
+-    .line 8
+-    invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
+-
+-    move-result p0
+-
+-    if-lez p0, :cond_4
+-
+-    .line 9
+-    invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
+-
+-    move-result p0
+-
+-    const/4 v2, 0x1
+-
+-    sub-int/2addr p0, v2
+-
+-    invoke-virtual {v0, p0}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+-
+-    move-result-object p0
+-
+-    check-cast p0, Lcom/sonelli/juicessh/models/Purchase;
+-
+-    iget-object p0, p0, Lcom/sonelli/juicessh/models/Purchase;->state:Ljava/lang/Integer;
+-
+-    invoke-virtual {p0}, Ljava/lang/Integer;->intValue()I
+-
+-    move-result p0
+-    :try_end_0
+-    .catch Ljava/lang/NullPointerException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    if-nez p0, :cond_4
+-
+-    return v2
+-
+-    :cond_4
+-    return v1
+-
+-    :catch_0
+-    move-exception p0
+-
+-    .line 10
+-    invoke-virtual {p0}, Ljava/lang/NullPointerException;->printStackTrace()V
+-
+-    return v1
++    return v0
+ .end method
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/v30.smali dec/smali/com/sonelli/v30.smali
+--- dec.orig/smali/com/sonelli/v30.smali	2026-11-08 13:03:06.040397000 +0800
++++ dec/smali/com/sonelli/v30.smali	2026-11-08 14:14:48.016247200 +0800
+@@ -51,7 +51,7 @@
+ 
+ # virtual methods
+ .method public final A()Landroid/app/PendingIntent;
+-    .locals 3
++    .locals 4
+ 
+     .line 1
+     invoke-virtual {p0}, Lcom/sonelli/q00;->h()Landroid/content/Context;
+@@ -80,7 +80,8 @@
+     const/4 v2, 0x0
+ 
+     .line 5
+-    invoke-static {v0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v3, 0x4000000
++    invoke-static {v0, v2, v1, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/vi0.smali dec/smali/com/sonelli/vi0.smali
+--- dec.orig/smali/com/sonelli/vi0.smali	2026-11-08 13:03:06.059917600 +0800
++++ dec/smali/com/sonelli/vi0.smali	2026-11-08 14:14:48.019249100 +0800
+@@ -346,7 +346,7 @@
+ .end method
+ 
+ .method public final d()Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+ 
+     .line 1
+     new-instance v0, Landroid/content/Intent;
+@@ -386,7 +386,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    invoke-static {v1, v2, v0, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -630,7 +631,7 @@
+ .end method
+ 
+ .method public final h()Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+ 
+     .line 1
+     new-instance v0, Landroid/content/Intent;
+@@ -670,7 +671,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    invoke-static {v1, v2, v0, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -882,7 +884,7 @@
+ .end method
+ 
+ .method public final j()Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+ 
+     .line 1
+     new-instance v0, Landroid/content/Intent;
+@@ -922,7 +924,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    invoke-static {v1, v2, v0, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+@@ -947,7 +950,7 @@
+ .end method
+ 
+ .method public final l()Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+ 
+     .line 1
+     new-instance v0, Landroid/content/Intent;
+@@ -987,7 +990,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v1, v2, v0, v3}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    invoke-static {v1, v2, v0, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/xi0.smali dec/smali/com/sonelli/xi0.smali
+--- dec.orig/smali/com/sonelli/xi0.smali	2026-11-08 13:03:06.177582700 +0800
++++ dec/smali/com/sonelli/xi0.smali	2026-11-08 14:14:48.030247300 +0800
+@@ -262,7 +262,7 @@
+ .end method
+ 
+ .method public b(I)V
+-    .locals 7
++    .locals 8
+ 
+     const/4 v0, 0x1
+ 
+@@ -300,7 +300,8 @@
+ 
+     const/4 v3, 0x0
+ 
+-    invoke-static {v2, v3, v1, v3}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v7, 0x4000000
++    invoke-static {v2, v3, v1, v7}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v1
+ 
+@@ -414,7 +415,7 @@
+ .end method
+ 
+ .method public c(Ljava/util/HashMap;)V
+-    .locals 13
++    .locals 14
+     .annotation system Ldalvik/annotation/Signature;
+         value = {
+             "(",
+@@ -592,7 +593,8 @@
+ 
+     const/4 v10, 0x0
+ 
+-    invoke-static {v9, v10, v8, v10}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v13, 0x4000000
++    invoke-static {v9, v10, v8, v13}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v8
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/y6.smali dec/smali/com/sonelli/y6.smali
+--- dec.orig/smali/com/sonelli/y6.smali	2026-11-08 13:03:06.215945000 +0800
++++ dec/smali/com/sonelli/y6.smali	2026-11-08 14:14:48.034249200 +0800
+@@ -235,7 +235,7 @@
+ .end method
+ 
+ .method public d(Landroid/content/Context;IILjava/lang/String;)Landroid/app/PendingIntent;
+-    .locals 0
++    .locals 1
+     .param p4    # Ljava/lang/String;
+         .annotation build Landroidx/annotation/Nullable;
+         .end annotation
+@@ -258,7 +258,8 @@
+     const/high16 p4, 0x8000000
+ 
+     .line 2
+-    invoke-static {p1, p3, p2, p4}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v0, 0xc000000
++    invoke-static {p1, p3, p2, v0}, Landroid/app/PendingIntent;->getActivity(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object p1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/yi0.smali dec/smali/com/sonelli/yi0.smali
+--- dec.orig/smali/com/sonelli/yi0.smali	2026-11-08 13:03:06.236066800 +0800
++++ dec/smali/com/sonelli/yi0.smali	2026-11-08 13:59:42.051745400 +0800
+@@ -145,9 +145,13 @@
+     iput v0, p0, Lcom/sonelli/yi0;->a:I
+ 
+     .line 4
+-    sget-object v1, Landroid/os/Environment;->DIRECTORY_DOWNLOADS:Ljava/lang/String;
++    invoke-virtual {p1}, Lcom/sonelli/ji0;->u()Landroid/app/Activity;
+ 
+-    invoke-static {v1}, Landroid/os/Environment;->getExternalStoragePublicDirectory(Ljava/lang/String;)Ljava/io/File;
++    move-result-object v1
++
++    const/4 v2, 0x0
++
++    invoke-virtual {v1, v2}, Landroid/content/Context;->getExternalFilesDir(Ljava/lang/String;)Ljava/io/File;
+ 
+     move-result-object v1
+ 
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/zg.smali dec/smali/com/sonelli/zg.smali
+--- dec.orig/smali/com/sonelli/zg.smali	2026-11-08 13:03:06.300522100 +0800
++++ dec/smali/com/sonelli/zg.smali	2026-11-08 14:14:48.043247200 +0800
+@@ -409,7 +409,7 @@
+ .end method
+ 
+ .method public final L0()Landroid/app/PendingIntent;
+-    .locals 4
++    .locals 5
+ 
+     .line 1
+     invoke-virtual {p0}, Lcom/sonelli/tf;->x()Landroid/content/Context;
+@@ -437,7 +437,8 @@
+     const/4 v2, 0x0
+ 
+     .line 4
+-    invoke-static {v0, v2, v1, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    const v4, 0x4000000
++    invoke-static {v0, v2, v1, v4}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
+ 
+     move-result-object v0
+ 
