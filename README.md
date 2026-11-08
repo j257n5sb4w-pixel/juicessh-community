@@ -145,12 +145,16 @@ Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
 
 ### 已验证的参考产物
 
-在 Android 16 (SDK 36) / arm64 真机上构建并安装验证通过：
+一次完整跑通的产物（Android 16 / SDK 36 / arm64 真机上安装并启动验证通过）：
 
 ```
 size    24,914,048 bytes
-sha256  ae4e4305ae7d50e3e1d6dddd7429e325d6da434f83215cbf55f7114b34d84eec
+sha256  53539dd334f5db39a1d0d01d644c80219cf6517f5fd04871dd2c4320a89987e4
 ```
+
+注意：你自己构建出来的哈希不会与上面相同——签名用的是构建时自动生成的新 keystore，
+证书不同则整个 APK 的字节就不同。这也意味着**你的构建产物不能覆盖安装我的**，
+反之亦然。
 
 ## 安装
 
