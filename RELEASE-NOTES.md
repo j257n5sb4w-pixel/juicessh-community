@@ -120,8 +120,10 @@ baksmali 反汇编，再把 smali 放回解码树。`javasrc/VaultTest.java` 的
 
 本版（community.4）验证：
 
-- 补丁可从干净解码树零冲突重现（`diff -rq` 0 差异，无 `.rej`）；补丁只含文本，
-  原生库由 `native/arm64-v8a/` 复制，`dec.orig + patch + native == dec` 已逐文件核对
+- 补丁可从干净解码树零冲突重现（`diff -rq` 0 差异，无 `.rej`）；补丁只含文本
+  （`apktool.yml` 由 `build.sh` 直接改字段，不进补丁，因为它记录输入文件名与宿主换行符），
+  原生库由 `native/arm64-v8a/` 复制，`dec.orig + yml 改动 + patch + native == dec`
+  已逐文件核对
 - 端到端：`build.sh <原版APK> framework-res.apk` 五阶段全过，产物可被 aapt2 解析
 - `aapt2 dump badging`：`versionCode=213`、`targetSdkVersion=36`、
   `compileSdkVersion=36`，权限表含 `FOREGROUND_SERVICE_SPECIAL_USE` 与
@@ -170,7 +172,7 @@ sha256  53539dd334f5db39a1d0d01d644c80219cf6517f5fd04871dd2c4320a89987e4
 
 ```
 size    25,884,812 bytes
-sha256  a8341505347670bf48f8131c17eee2e2f9f0451fa4aa57b2b549a8fede59333f
+sha256  d1824ece8dd72f712e71215ef4983afcb2a43672c2b0df929f5cc0c153f51e04
 ```
 
 上一版参考产物（community.3，纯 Java 补丁）：

@@ -87,6 +87,16 @@ rm -rf "$DEC"
 "$JAVA_BIN" -Xmx4g -jar "$APKTOOL" d -f -p "$FW" -o "$DEC" "$SRC_APK" >/dev/null
 
 echo "==> [3/5] applying patches"
+# apktool.yml is deliberately NOT part of the text patch: it embeds the source
+# APK's file name and apktool's own line endings, which differ per host and per
+# input file, so a whole-file hunk can never apply reliably. Normalise line
+# endings, then bump the fields we need.
+YML="$DEC/apktool.yml"
+tr -d '\r' < "$YML" > "$YML.tmp" && mv -f "$YML.tmp" "$YML"
+sed -i 's|^apkFileName: .*|apkFileName: JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk|' "$YML"
+sed -i 's|^  targetSdkVersion: .*|  targetSdkVersion: 36|' "$YML"
+sed -i 's|^  versionCode: .*|  versionCode: 213|' "$YML"
+sed -i 's|^  versionName: .*|  versionName: 3.2.2-community.4|' "$YML"
 for p in "$ROOT"/patches/*.patch; do
   echo "    $(basename "$p")"
   ( cd "$DEC" && patch -p1 --binary -s -i "$p" )

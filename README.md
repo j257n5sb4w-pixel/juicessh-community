@@ -261,13 +261,21 @@ adb pull //system/framework/framework-res.apk ./framework-res.apk
 
 Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
 
+两个和输入有关的要求：
+
+- **输入必须是原版 3.2.2**（`versionCode 200`，`targetSdk 29`），不能是本仓库的产物。
+  smali 补丁按原版反编译结果逐行匹配，拿社区版再跑一遍必然冲突。
+- `apktool.yml` 不在补丁里：它记录了输入文件名和 apktool 自己的换行符，跨机器无法稳定
+  匹配。`build.sh` 在打补丁前把 `versionCode`/`versionName`/`targetSdkVersion` 直接写进
+  解码树的 `apktool.yml`（`213` / `3.2.2-community.4` / `36`）。
+
 ### 已验证的参考产物
 
 本仓库对应的产物（`3.2.2-community.4`，targetSdk 36，`versionCode 213`）：
 
 ```
 size    25,884,812 bytes
-sha256  a8341505347670bf48f8131c17eee2e2f9f0451fa4aa57b2b549a8fede59333f
+sha256  d1824ece8dd72f712e71215ef4983afcb2a43672c2b0df929f5cc0c153f51e04
 签名证书 SHA-256
         01:EE:3E:87:E8:D9:1A:8E:81:5F:CF:13:C7:CD:04:3C:26:17:62:8F:DD:59:C5:D3:E7:0B:4F:62:A0:D9:17:E5
 ```
