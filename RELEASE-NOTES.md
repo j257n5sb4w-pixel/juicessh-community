@@ -16,6 +16,9 @@
   EC2 代码中的 `InetAddressUtils` 调用。
 - `versionCode` → 212，`versionName` → `3.2.2-community.3`。
 
+代价：210000 轮 PBKDF2 在手机上约 0.1–0.3 秒，只在解密单条凭据时发生
+（打开连接、编辑身份），不在列表渲染路径上。
+
 实现方式：`javasrc/com/sonelli/{qg0,ipaddr}.java` 用 javac 编译、d8 转 dex、apktool 自带的
 baksmali 反汇编，再把 smali 放回解码树。`javasrc/VaultTest.java` 的 23 项断言（往返、
 旧格式兼容、篡改检测、错误口令、格式校验、IPv4/IPv6 判定）在生成 smali 之前必须全部通过。
