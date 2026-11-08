@@ -1,12 +1,16 @@
-# 重建的 arm64-v8a 原生库
+# 重建的原生库（四个 ABI）
 
-`native/arm64-v8a/` 里放的是**重新编译**的两个共享库，构建时由 `build.sh` 的
-`[3b]` 步骤复制进解码树，覆盖原版 APK 里的同名文件：
+`native/<abi>/` 里放的是**重新编译**的两个共享库，构建时由 `build.sh` 的 `[3b]`
+步骤复制进解码树的 `lib/<abi>/`，覆盖原版 APK 里的同名文件：
 
-| 文件 | 大小 | 来源 |
+| ABI | `libcom.sonelli.libssh.so` | `libcrypto.so` |
 | --- | --- | --- |
-| `libcom.sonelli.libssh.so` | 536,720 B | libssh 0.11.3 |
-| `libcrypto.so` | 5,964,880 B | OpenSSL 3.5.4 |
+| `arm64-v8a` | 536,720 B | 5,964,880 B |
+| `armeabi-v7a` | 370,544 B | 4,102,332 B |
+| `x86` | 510,080 B | 5,507,708 B |
+| `x86_64` | 536,400 B | 6,299,352 B |
+
+四个 ABI 的 `libssl.so` 都已删除：没有任何库 `NEEDED` 它。
 
 原版是 libssh 0.9.3 + OpenSSL 1.1.1g，两者都停在 2020–2021 年，带着
 CVE-2021-3634、CVE-2020-1730、Terrapin（CVE-2023-48795）、CVE-2025-5372 等已公开漏洞，
@@ -40,6 +44,12 @@ libcrypto.so              LOAD p_align 0x4000  NEEDED libm.so libdl.so libc.so
 
 工具链：NDK r29（`29.0.14206865`）、CMake 4.1.2、Ninja、MSYS perl 5.042003、
 OpenSSL 3.5.4 源码、libssh 0.11.3 源码。
+
+一键脚本：`ndkbuild/build-abi.sh {armeabi-v7a|x86|x86_64|arm64-v8a}`，产物写到
+`ndkbuild/out/`。它每次都从**干净 tarball** 解出 OpenSSL 再 Configure——在源码树里
+in-tree 编过一次后，`configdata.pm`/`Makefile` 会让后续 out-of-tree Configure 报
+`providers/libcommon.a is given as source ... but no such library is built`。
+同一 ABI 不要并行跑两个实例，脚本会 `rm -rf` 同一个目录。
 
 ### 1. 准备
 

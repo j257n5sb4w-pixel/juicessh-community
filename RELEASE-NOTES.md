@@ -2,9 +2,32 @@
 
 基于原版 JuiceSSH 3.2.2（`versionCode 200`，`com.sonelli.juicessh`）的社区维护补丁集。
 
-当前版本：`3.2.2-community.4`（`versionCode 213`，`targetSdk 36`）
+当前版本：`3.2.2-community.5`（`versionCode 214`，`targetSdk 36`）
 
-## 本版（community.4 / 213）相对上一版的改动
+## 本版（community.5 / 214）相对 community.4 的改动
+
+- **四个 ABI 的原生库全部重建**：`armeabi-v7a`、`x86`、`x86_64` 也换成 libssh **0.11.3** +
+  OpenSSL **3.5.4**；arm64-v8a 与 x86_64 的 `p_align` 是 **16384**。四个 ABI 都不再带
+  CVE-2021-3634、CVE-2020-1730、Terrapin CVE-2023-48795、CVE-2025-5372。
+- **四个 ABI 的 `libssl.so` 全部删除**：没有任何库 `NEEDED` 它，单个 ABI 省 0.7–0.9 MB。
+- **彻底移除 Firebase / GMS / Crashlytics**：清单删掉 23 个条目——`FirebaseInitProvider`、
+  `FirebaseInstanceIdReceiver`、`ComponentDiscoveryService`、Analytics/AppMeasurement 的
+  service 与 receiver、`GoogleApiActivity`、`SignInHubActivity`、`RevocationBoundService`、
+  datatransport 的 service 与 receiver、`com.crashlytics.ApiKey`、`com.google.android.gms.version`。
+  遥测本来就被 `qi0` 短路，这一版连初始化入口和后台任务都不再存在。
+- **移除已死权限**：`C2D_MESSAGE`、`c2dm.permission.RECEIVE`、
+  `BIND_GET_INSTALL_REFERRER_SERVICE`、`com.android.vending.BILLING`。应用内购买早已失效，
+  这条权限留着只会让商店页显示「含内购」。
+- **真机实测**：Android 16 / XT2601-1（arm64、SDK 36）`adb install -r` 升级成功，冷启动无
+  FATAL；连 `github.com:22` 完成 KEX、弹出主机密钥
+  `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU`，随后进入公钥认证并因无密钥被拒——
+  重建后的 libssh 0.11.3 + OpenSSL 3.5.4 能在真机上完整走完握手。
+- `versionCode` → 214，`versionName` → `3.2.2-community.5`；APK 27,477,956 B。
+
+仍然没做：telnet（32 位 ARM，纯 64 位设备起不来；mosh 本来就是 64 位）、凭据密钥进
+AndroidKeyStore（会让数据库换设备不可解，见 README 第 6 节）。
+
+## 上一版（community.4 / 213）相对 community.3 的改动
 
 - **arm64-v8a 的 `libssh` 从 0.9.3 升到 0.11.3、`OpenSSL` 从 1.1.1g 升到 3.5.4**，
   两者都用 NDK r29 重新交叉编译，`p_align` 从 4096 变成 **16384**。原库带

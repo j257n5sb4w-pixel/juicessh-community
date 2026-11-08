@@ -202,85 +202,62 @@ smali 之前跑通。
 **telnet 仍然不可用。** `libcom_sonelli_telnet.so` 同样是 32 位，而 Android 系统里
 没有可替代的 telnet 客户端，除非自行用 NDK 交叉编译一个 aarch64 版塞进去。
 
-### 9. 重建原生库（arm64-v8a）
+### 9. 重建原生库（四个 ABI）
 
-arm64-v8a 的 `libssh` 与 `OpenSSL` 已用 NDK r29 重新交叉编译：libssh 0.9.3 → **0.11.3**、
-OpenSSL 1.1.1g → **3.5.4**，`p_align` 从 4096 变成 **16384**。
+四个 ABI 的 `libssh` 与 `OpenSSL` 都用 NDK r29 重新交叉编译：libssh 0.9.3 → **0.11.3**、
+OpenSSL 1.1.1g → **3.5.4**。arm64-v8a 与 x86_64 的 `p_align` 从 4096 变成 **16384**。
+
+| ABI | libssh 0.11.3 | libcrypto 3.5.4 |
+| --- | --- | --- |
+| `arm64-v8a` | 536,720 B | 5,964,880 B |
+| `armeabi-v7a` | 370,544 B | 4,102,332 B |
+| `x86` | 510,080 B | 5,507,708 B |
+| `x86_64` | 536,400 B | 6,299,352 B |
 
 之所以能直接换：JuiceSSH 用 JNA 按普通 C 符号名绑定，不依赖 JNI 导出名。旧库导出的
 424 个符号新库全有（新库 901 个），smali 里实际调用的 66 个方法名一个不缺；
 `ssh_channel_callbacks_struct` 新增的两个回调在尾部，App 用 `size` 字段初始化，
 libssh 按 `size` 截断拷贝，所以老代码照样能用。
 
-arm64-v8a 下没任何库 `NEEDED libssl.so`，顺手删掉（省 786 KB，也少一个 CVE 面）。
+四个 ABI 下都没有库 `NEEDED libssl.so`，顺手全部删掉（arm64 省 786 KB，其余各 ABI
+省 0.7–0.9 MB，也少一个 CVE 面）。
 
 细节、复现命令与兼容性核对见 [`native/README.md`](native/README.md)。
 
-**代价**：这两个库从 3.9 MB 涨到 6.5 MB，APK 净增约 0.97 MB；libssh 0.11.3 与 OpenSSL 3
-的默认算法列表比 0.9.3/1.1.1 更严，只支持老旧算法（`ssh-rsa`、`3des-cbc`、
+**代价**：四个 ABI 的库合计从约 13 MB 涨到约 24 MB，APK 净增约 1.6 MB；libssh 0.11.3
+与 OpenSSL 3 的默认算法列表比 0.9.3/1.1.1 更严，只支持老旧算法（`ssh-rsa`、`3des-cbc`、
 `diffie-hellman-group1-sha1`、Blowfish/CAST/RC4）的服务器可能连不上了。这是安全改进，
 但对内网老设备是行为变化。
 
 ## 没有做的事（以及为什么）
 
-- **升级其余 ABI 的原生库**：`armeabi-v7a`/`x86`/`x86_64` 仍是 libssh 0.9.3 +
-  OpenSSL 1.1.1g。现代设备基本都是 arm64，重新编三个 ABI 只会让 APK 再涨 4 MB 左右，
-  收益很低；需要时按 `native/README.md` 换 `ANDROID_ABI` 重跑即可。
-- **替换 androidx / Firebase**：那是源码级重构，需要原始 Java 源码，而这里只有 smali。
+- **telnet**：`libcom_sonelli_telnet.so` 仍是 32 位 ARM，纯 64 位设备上起不来。上游
+  `Sonelli/android-telnet` 是 2011 年的 GNU inetutils 1.9，需要 glibc 的 utmp/utmpx，
+  在 bionic 上要另写一套兼容层；telnet 本身也是明文协议，投入产出比很低，留给需要的人
+  按 `native/README.md` 自行移植。mosh 不受影响——`libcom_sonelli_mosh-client.so`
+  本来就是 64 位 aarch64。
 - **把凭据密钥托管到 AndroidKeyStore**：需要重做密钥生命周期（改口令要重新包裹），
   会改变“同一份数据库换设备也能解”的行为，属于产品级决策，见第 6 节。
-- **移除 Firebase / Crashlytics**：它们的初始化在清单里由 `ContentProvider` 自动完成，
-  摘除组件会牵连 `FirebaseInitProvider` 的启动顺序。留着只是不发数据（因为
-  `ApplicationClass` 已经不再初始化它们），风险可控。
-
-**仍然存在的已知漏洞**：其余 ABI 的 `libssh 0.9.3` 仍命中 `CVE-2021-3634`（恶意 SSH 服务端
-可致客户端内存破坏）、`CVE-2020-1730`、Terrapin `CVE-2023-48795`；arm64-v8a 已经是
-libssh 0.11.3 + OpenSSL 3.5.4，不再受影响。只连接你信任的服务器。
-
-## 怎么构建
-
-需要：**JDK 17**、`apktool.jar` 3.x、`apksig.jar`、`patch`，以及**一台 Android 14+ 设备**
-（或对应的 `framework-res.apk`）。
-
-```bash
-# 1. 准备工具
-mkdir -p tools
-# apktool:      https://github.com/iBotPeaches/Apktool/releases
-# apksig:       https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/9.0.0/apksig-9.0.0.jar
-#               （Maven Central 上没有，只有 Google Maven）
-
-# 2. 拉真机框架（必需，否则装不上）
-adb pull //system/framework/framework-res.apk ./framework-res.apk
-
-# 3. 构建
-./build.sh /path/to/JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk ./framework-res.apk
-```
-
-产物在 `dist/JuiceSSH-3.2.2-community.apk`。首次构建会自动生成
-`keystore/community.jks`（口令 `community`）。
-
-Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
-
-两个和输入有关的要求：
-
 - **输入必须是原版 3.2.2**（`versionCode 200`，`targetSdk 29`），不能是本仓库的产物。
   smali 补丁按原版反编译结果逐行匹配，拿社区版再跑一遍必然冲突。
 - `apktool.yml` 不在补丁里：它记录了输入文件名和 apktool 自己的换行符，跨机器无法稳定
   匹配。`build.sh` 在打补丁前把 `versionCode`/`versionName`/`targetSdkVersion` 直接写进
-  解码树的 `apktool.yml`（`213` / `3.2.2-community.4` / `36`）。
+  解码树的 `apktool.yml`（`214` / `3.2.2-community.5` / `36`）。
 
 ### 已验证的参考产物
 
-本仓库对应的产物（`3.2.2-community.4`，targetSdk 36，`versionCode 213`）：
+本仓库对应的产物（`3.2.2-community.5`，targetSdk 36，`versionCode 214`）：
 
 ```
-size    25,884,812 bytes
-sha256  d1824ece8dd72f712e71215ef4983afcb2a43672c2b0df929f5cc0c153f51e04
+size    27,477,956 bytes
+sha256  f8ed51842d562d810abf329bfc608df6371854e9bdbf8917b9d9cda7182a5de3
 签名证书 SHA-256
         01:EE:3E:87:E8:D9:1A:8E:81:5F:CF:13:C7:CD:04:3C:26:17:62:8F:DD:59:C5:D3:E7:0B:4F:62:A0:D9:17:E5
 ```
 
-上一版 `3.2.2-community.3`（`versionCode 212`）是
+上一版 `3.2.2-community.4`（`versionCode 213`）是
+`d1824ece8dd72f712e71215ef4983afcb2a43672c2b0df929f5cc0c153f51e04`；
+`3.2.2-community.3`（`versionCode 212`）是
 `5ba0d3b381db61d956eb3cecba6f9938f12abc502b619d7c4c0ecbb0942095ad`；
 `3.2.2-community.2`（211）是
 `2365ce7468e63d0b75c859b37f2eb69391555e531708323be3a587be67029cff`；最初的
@@ -304,7 +281,7 @@ adb install dist/JuiceSSH-3.2.2-community.apk
 ```
 
 已经装了任一版社区构建（`3.2.2-community` / 210、`community.2` / 211、
-`community.3` / 212）的，直接 `adb install -r` 即可升级：签名相同、versionCode 213 更高。
+`community.3` / 212、`community.4` / 213）的，直接 `adb install -r` 即可升级：签名相同、versionCode 214 更高。
 
 ## 回归检查清单
 
@@ -322,8 +299,9 @@ adb install dist/JuiceSSH-3.2.2-community.apk
 - [ ] 会话挂机超过 6 小时不被系统掐断（`specialUse` 前台服务）
 - [ ] 第三方 App 无法直接拉起 `PurchaseActivity` / `LogViewerActivity`（导出已关闭）
 - [ ] 冷启动时没有长时间卡顿（不会再有指向死域名的 10 秒超时）
-- [ ] **arm64 真机上 SSH 能正常握手**（`libssh 0.11.3` 重建库只做了静态符号/结构体核对，
-      一次真实登录、SFTP、端口转发都还没跑过）
+- [x] **arm64 真机上 SSH 能正常握手**（Android 16 / XT2601-1：连 `github.com:22` 完成
+      KEX、拿到主机密钥指纹 `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU` 并进入
+      认证阶段；SFTP 与端口转发仍未单独跑过）
 - [ ] 老服务器若连不上，是算法收紧所致（`ssh-rsa`/`3des-cbc`/`group1-sha1` 已被
       libssh 0.11.3 默认关闭），需要在服务器侧开现代算法，而不是回退客户端
 - [ ] telnet 连接（**已知不可用**，见上）
@@ -332,8 +310,8 @@ adb install dist/JuiceSSH-3.2.2-community.apk
 
 ```
 patches/0001-juicessh-community.patch   全部 smali + 清单改动（统一 diff，保留 CRLF）
-native/arm64-v8a/libcom.sonelli.libssh.so  重建的 libssh 0.11.3（16 KB 对齐）
-native/arm64-v8a/libcrypto.so              重建的 OpenSSL 3.5.4（16 KB 对齐）
+native/<abi>/libcom.sonelli.libssh.so     重建的 libssh 0.11.3（四个 ABI）
+native/<abi>/libcrypto.so                 重建的 OpenSSL 3.5.4（四个 ABI）
 native/README.md                        原生库的来源、复现步骤与 ABI 核对
 scripts/Sign.java                       apksig v1+v2+v3 签名器
 scripts/repack_manifest.py              已弃用，见上文「两个必须知道的坑」

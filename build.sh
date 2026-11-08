@@ -95,23 +95,26 @@ YML="$DEC/apktool.yml"
 tr -d '\r' < "$YML" > "$YML.tmp" && mv -f "$YML.tmp" "$YML"
 sed -i 's|^apkFileName: .*|apkFileName: JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk|' "$YML"
 sed -i 's|^  targetSdkVersion: .*|  targetSdkVersion: 36|' "$YML"
-sed -i 's|^  versionCode: .*|  versionCode: 213|' "$YML"
-sed -i 's|^  versionName: .*|  versionName: 3.2.2-community.4|' "$YML"
+sed -i 's|^  versionCode: .*|  versionCode: 214|' "$YML"
+sed -i 's|^  versionName: .*|  versionName: 3.2.2-community.5|' "$YML"
 for p in "$ROOT"/patches/*.patch; do
   echo "    $(basename "$p")"
   ( cd "$DEC" && patch -p1 --binary -s -i "$p" )
 done
 
-# Text patches cannot carry shared libraries, so the rebuilt arm64-v8a
-# libssh/OpenSSL pair is installed here. See native/README.md.
+# Text patches cannot carry shared libraries, so the rebuilt libssh/OpenSSL
+# pairs are installed here, one directory per ABI. See native/README.md.
 echo "==> [3b] installing rebuilt native libraries"
-for so in "$ROOT"/native/arm64-v8a/*.so; do
-  [[ -f "$so" ]] || continue
-  cp -f "$so" "$DEC/lib/arm64-v8a/"
-  echo "    $(basename "$so") $(wc -c <"$so" | tr -d ' ') bytes"
+for abi_dir in "$ROOT"/native/*/; do
+  abi=$(basename "$abi_dir")
+  for so in "$abi_dir"*.so; do
+    [[ -f "$so" ]] || continue
+    cp -f "$so" "$DEC/lib/$abi/"
+    echo "    $abi/$(basename "$so") $(wc -c <"$so" | tr -d ' ') bytes"
+  done
+  # Nothing links against libssl.so any more: libssh only needs libcrypto.
+  rm -f "$DEC/lib/$abi/libssl.so"
 done
-# Nothing links against libssl.so any more (libssh only needs libcrypto).
-rm -f "$DEC/lib/arm64-v8a/libssl.so"
 
 echo "==> [4/5] assembling"
 UNSIGNED="$WORK/unsigned.apk"
