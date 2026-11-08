@@ -27,7 +27,9 @@ Terrapin `CVE-2023-48795`、`CVE-2025-5372`）依然存在——重编四个 ABI
 ## 验证状态
 
 - 补丁可从干净解码树零冲突重现（`diff -rq` 0 差异、`*.rej` 0 个）
-- 构建产物通过 `jarsigner -verify -strict`
-- 签名块含 v1 + v2 + v3（`0x7109871a` / `0xf05368c0`）
+- 构建产物通过 `jarsigner -verify`（退出码 0；`-strict` 会因 JDK 对 v1 条目的
+  `not signed in JarInputStream` 提示返回 4，这是 apksig 签名的常规现象，不是篡改证据）
+- 签名块含 v1 + v2 + v3（`0x7109871a` / `0xf05368c0` / `0x42726577`）
 - 最终 manifest 经二进制解析确认：`targetSdkVersion=35`、`pageSizeCompat` 为字符串类型
+- 端到端验证：仓库自带 `build.sh` 从干净原版 APK 出发可零人工干预产出可签名的 APK
 - **未在真机上测试**（构建环境无可用设备）

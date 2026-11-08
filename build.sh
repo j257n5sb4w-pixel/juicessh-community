@@ -5,7 +5,7 @@
 # Nothing here redistributes the original APK or the built one.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
 SRC_APK="${1:-}"
 if [[ -z "$SRC_APK" || ! -f "$SRC_APK" ]]; then
   echo "usage: $0 /path/to/JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk" >&2
