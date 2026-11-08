@@ -1,17 +1,16 @@
 diff -ruN '--exclude=build' dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
 --- dec.orig/AndroidManifest.xml	2026-11-08 13:03:04.360795000 +0800
-+++ dec/AndroidManifest.xml	2026-11-08 13:59:42.050574100 +0800
-@@ -17,6 +17,9 @@
++++ dec/AndroidManifest.xml	2026-11-08 18:25:12.473940600 +0800
+@@ -17,6 +17,8 @@
      <permission android:name="com.sonelli.juicessh.api.v1.permission.JUICESSH_ONLY" android:protectionLevel="signature"/>
      <permission android:label="@string/juicessh_plugin_log_read_only" android:name="com.sonelli.juicessh.api.v1.permission.READ_PLUGIN_LOG"/>
      <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 +    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
 +    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
      <uses-permission android:name="android.permission.INTERNET"/>
      <uses-permission android:name="com.sonelli.juicessh.permission.C2D_MESSAGE"/>
      <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
-@@ -29,7 +32,7 @@
+@@ -29,7 +31,7 @@
      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
      <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT"/>
      <uses-permission android:name="com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"/>
@@ -20,7 +19,7 @@ diff -ruN '--exclude=build' dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
          <service android:enabled="true" android:exported="true" android:name="com.sonelli.juicessh.services.ConnectionPluginService" android:permission="com.sonelli.juicessh.api.v1.permission.OPEN_SESSIONS">
              <intent-filter>
                  <action android:name="com.sonelli.juicessh.connectionpluginservice"/>
-@@ -70,14 +73,14 @@
+@@ -70,14 +72,14 @@
                  <action android:name="com.sonelli.juicessh.action.SFTP_RESUME"/>
              </intent-filter>
          </receiver>
@@ -37,16 +36,16 @@ diff -ruN '--exclude=build' dec.orig/AndroidManifest.xml dec/AndroidManifest.xml
              <intent-filter>
                  <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
              </intent-filter>
-@@ -97,7 +100,7 @@
+@@ -97,7 +99,7 @@
                  <category android:name="android.intent.category.DEFAULT"/>
              </intent-filter>
          </service>
 -        <service android:enabled="true" android:exported="false" android:name="com.sonelli.juicessh.connections.ConnectionManagerService">
-+        <service android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync|connectedDevice" android:name="com.sonelli.juicessh.connections.ConnectionManagerService">
++        <service android:enabled="true" android:exported="false" android:foregroundServiceType="dataSync" android:name="com.sonelli.juicessh.connections.ConnectionManagerService">
              <intent-filter>
                  <action android:name="com.sonelli.juicessh.connections.ConnectionManagerService"/>
                  <category android:name="android.intent.category.DEFAULT"/>
-@@ -114,7 +117,7 @@
+@@ -114,7 +116,7 @@
              </intent-filter>
              <meta-data android:name="android.support.PARENT_ACTIVITY" android:value="activities.MainActivity"/>
          </activity>
@@ -217,6 +216,105 @@ diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/be0.smali dec/smali/com/s
  
      move-result-object p0
  
+diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/ci0.smali dec/smali/com/sonelli/ci0.smali
+--- dec.orig/smali/com/sonelli/ci0.smali	2026-11-08 13:03:04.384302100 +0800
++++ dec/smali/com/sonelli/ci0.smali	2026-11-08 18:35:00.541775100 +0800
+@@ -67,84 +67,40 @@
+ .end method
+ 
+ .method public t()[Ljava/lang/String;
+-    .locals 4
++    .locals 3
+ 
++    .line 1
+     const/4 v0, 0x3
+ 
+     new-array v0, v0, [Ljava/lang/String;
+ 
++    .line 2
+     const/4 v1, 0x0
+ 
+-    const-string v2, "--rcfile"
++    const-string v2, "-i"
+ 
+     aput-object v2, v0, v1
+ 
+-    .line 1
+-    new-instance v1, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    new-instance v2, Ljava/io/File;
+-
+-    iget-object v3, p0, Lcom/sonelli/ei0;->d:Landroidx/fragment/app/FragmentActivity;
+-
+-    invoke-virtual {v3}, Landroid/app/Activity;->getApplicationInfo()Landroid/content/pm/ApplicationInfo;
+-
+-    move-result-object v3
+-
+-    iget-object v3, v3, Landroid/content/pm/ApplicationInfo;->nativeLibraryDir:Ljava/lang/String;
+-
+-    invoke-direct {v2, v3}, Ljava/io/File;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+-
+-    const-string v2, "/libcom_sonelli_bashrc.so"
+-
+-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
++    .line 3
++    const/4 v1, 0x1
+ 
+-    const/4 v2, 0x1
++    const/4 v2, 0x0
+ 
+-    aput-object v1, v0, v2
++    aput-object v2, v0, v1
+ 
++    .line 4
+     const/4 v1, 0x2
+ 
+-    const/4 v2, 0x0
+-
+     aput-object v2, v0, v1
+ 
+     return-object v0
+ .end method
+ 
+ .method public u()Ljava/lang/String;
+-    .locals 2
++    .locals 1
+ 
+     .line 1
+-    iget-object v0, p0, Lcom/sonelli/ei0;->d:Landroidx/fragment/app/FragmentActivity;
+-
+-    invoke-virtual {v0}, Landroid/app/Activity;->getApplicationInfo()Landroid/content/pm/ApplicationInfo;
+-
+-    move-result-object v0
+-
+-    iget-object v0, v0, Landroid/content/pm/ApplicationInfo;->nativeLibraryDir:Ljava/lang/String;
+-
+-    .line 2
+-    new-instance v1, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    const-string v0, "/libcom_sonelli_bash.so"
+-
+-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v0
++    const-string v0, "/system/bin/sh"
+ 
+     return-object v0
+ .end method
 diff -ruN '--exclude=build' dec.orig/smali/com/sonelli/ei0.smali dec/smali/com/sonelli/ei0.smali
 --- dec.orig/smali/com/sonelli/ei0.smali	2026-11-08 13:03:04.524015900 +0800
 +++ dec/smali/com/sonelli/ei0.smali	2026-11-08 14:14:47.910738800 +0800

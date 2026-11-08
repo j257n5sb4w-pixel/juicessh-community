@@ -50,21 +50,60 @@ JuiceSSH 3.2.2 的社区维护版本。原开发者 Sonelli Ltd. 已停更多年
   不变（新增独立寄存器，避免破坏 PendingIntent 的去重语义）
 - `lh.smali` 里对 `com.google.analytics.RADIO_POWERED` 的动态广播注册改为
   `RECEIVER_NOT_EXPORTED`
-- `ConnectionManagerService` 补 `android:foregroundServiceType="dataSync|connectedDevice"`
-- 新增 `FOREGROUND_SERVICE_DATA_SYNC`、`FOREGROUND_SERVICE_CONNECTED_DEVICE`、
-  `POST_NOTIFICATIONS` 权限
+- `ConnectionManagerService` 补 `android:foregroundServiceType="dataSync"`
+- 新增 `FOREGROUND_SERVICE_DATA_SYNC`、`POST_NOTIFICATIONS` 权限
 - `MainActivity` / `PushNotificationReceiver` / `ConnectionWidgetProvider` 补
   `android:exported`（targetSdk ≥ 31 时有 intent-filter 却缺这个属性会导致装不上）
 - `android:pageSizeCompat="enabled"` —— 16 KB 页设备上抑制每次启动的兼容性警告弹窗。
-  注意：apktool 的 aapt2 会把这个属性错误地编译成 `TYPE_INT_DEC`，脚本
-  `repack_manifest.py` 在签名前把它改回 `TYPE_STRING`，否则属性被系统静默忽略。
 
-### 4. 存储路径
+#### 两个必须知道的坑
+
+**`foregroundServiceType` 不能写 `connectedDevice`。** 真机上会崩：
+
+```
+java.lang.SecurityException: Starting FGS with type connectedDevice ...
+requires permissions: [android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE]
+and any of [BLUETOOTH_CONNECT, CHANGE_NETWORK_STATE, NFC, USB Device, ...]
+```
+
+SSH 客户端不需要蓝牙/USB，所以只用 `dataSync`。
+
+**`pageSizeCompat` 必须用 Android 14+ 的 framework-res.apk 编译。**
+它在 AOSP 里是 **enum**（`enabled=0x20`），不是字符串。apktool 自带的
+`prebuilt/android-framework.jar` 是 API 29，根本没有这个属性定义，离线编译只会
+产出裸整数；更糟的是若手工把它改写成 `TYPE_STRING`，安装时会直接失败：
+
+```
+INSTALL_PARSE_FAILED_UNEXPECTED_EXCEPTION: Failed to read manifest ...: For input string: "enabled"
+```
+
+正确做法只有一个：把真机上的框架拉下来注册给 apktool。
+
+```bash
+adb pull //system/framework/framework-res.apk ./framework-res.apk
+java -jar tools/apktool.jar if framework-res.apk
+```
+
+`build.sh` 的 `[2/5]` 步骤做的就是这件事，且框架未提供时会打印警告。
+`scripts/repack_manifest.py` 是早期走弯路时的产物，**已弃用，不要调用**。
+
+### 4. 存储路径与本地 shell
 
 `yi0`（SFTP 下载控制器）原本把目标目录写死为公共 `Downloads`。改为
 `Context.getExternalFilesDir(null)`，在分区存储下依然可写。
 
 > 下载的文件因此落在 `Android/data/com.sonelli.juicessh/files/` 下。
+
+本地终端原本启动包内的 `libcom_sonelli_bash.so`。这个 .so 在**每一个 ABI 目录里
+都是 32 位 ARM**（原版就如此，不是构建造成的），而现代设备普遍是纯 64 位
+（`abilist32` 为空），于是启动即 `exit code 255` + `EIO`，终端闪退。
+
+补丁把 `ci0.u()` 改为返回 `/system/bin/sh`、`ci0.t()` 改为 `{"-i", NULL, NULL}`，
+即改用系统自带的 64 位 shell。副作用是 bash 特性（`~/.bashrc`、补全脚本）没有了，
+换来的是本地终端真能用。
+
+**telnet 仍然不可用。** `libcom_sonelli_telnet.so` 同样是 32 位，而 Android 系统里
+没有可替代的 telnet 客户端，除非自行用 NDK 交叉编译一个 aarch64 版塞进去。
 
 ## 没有做的事（以及为什么）
 
@@ -82,23 +121,36 @@ JuiceSSH 3.2.2 的社区维护版本。原开发者 Sonelli Ltd. 已停更多年
 
 ## 怎么构建
 
-需要：**JDK 17**、**Python 3**、`apktool.jar` 3.x、`apksig.jar`、`patch`。
+需要：**JDK 17**、`apktool.jar` 3.x、`apksig.jar`、`patch`，以及**一台 Android 14+ 设备**
+（或对应的 `framework-res.apk`）。
 
 ```bash
 # 1. 准备工具
 mkdir -p tools
-# 从 https://github.com/iBotPeaches/Apktool/releases 下载 apktool.jar
-# 从 https://maven.google.com 取 com.android.tools.build:apksig
-#   （repo1.maven.org 上没有，只在 Google Maven）
+# apktool:      https://github.com/iBotPeaches/Apktool/releases
+# apksig:       https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/9.0.0/apksig-9.0.0.jar
+#               （Maven Central 上没有，只有 Google Maven）
 
-# 2. 构建
-./build.sh /path/to/JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk
+# 2. 拉真机框架（必需，否则装不上）
+adb pull //system/framework/framework-res.apk ./framework-res.apk
+
+# 3. 构建
+./build.sh /path/to/JuiceSSH+-+SSH+Client_3.2.2_APKPure.apk ./framework-res.apk
 ```
 
 产物在 `dist/JuiceSSH-3.2.2-community.apk`。首次构建会自动生成
 `keystore/community.jks`（口令 `community`）。
 
 Windows 上用 Git Bash 执行；`patch` 由 Git for Windows 提供。
+
+### 已验证的参考产物
+
+在 Android 16 (SDK 36) / arm64 真机上构建并安装验证通过：
+
+```
+size    24,914,048 bytes
+sha256  ae4e4305ae7d50e3e1d6dddd7429e325d6da434f83215cbf55f7114b34d84eec
+```
 
 ## 安装
 
@@ -112,23 +164,25 @@ adb install dist/JuiceSSH-3.2.2-community.apk
 
 ## 回归检查清单
 
-侧载后建议手工确认：
+侧载后建议手工确认（**下列前五项已在 Android 16 / XT2601-1 上实测通过**）：
 
-- [ ] 首次启动不弹「此应用不兼容 16 KB 页大小」
-- [ ] 新建 SSH 连接能连上（`ssh://` 链接也能唤起）
-- [ ] 终端里输入 `echo $TERM` 有输出，本地 shell 可用
+- [x] 首次启动不弹「此应用不兼容 16 KB 页大小」
+- [x] 新建 SSH 连接能连上（`ssh://` 链接也能唤起）
+- [x] 主机密钥指纹弹出且与服务器官方指纹一致
+- [x] 终端里本地 shell 可用（`/system/bin/sh`，提示符正常）
+- [x] 主界面不再出现「解锁 Pro」「云同步」「团队共享」「书城」卡片
 - [ ] SFTP 下载文件落在 `Android/data/com.sonelli.juicessh/files/`
 - [ ] 端口转发可用（Pro 门禁已解锁）
 - [ ] 通知点击能回到对应会话（`PendingIntent` 补丁生效）
-- [ ] 主界面不再出现「解锁 Pro」「云同步」「团队共享」「书城」卡片
 - [ ] 冷启动时没有长时间卡顿（不会再有指向死域名的 10 秒超时）
+- [ ] telnet 连接（**已知不可用**，见上）
 
 ## 目录结构
 
 ```
-patches/0001-juicessh-community.patch   全部 smali + 清单改动（统一 diff）
-scripts/repack_manifest.py              修复 pageSizeCompat 的属性类型
+patches/0001-juicessh-community.patch   全部 smali + 清单改动（统一 diff，保留 CRLF）
 scripts/Sign.java                       apksig v1+v2+v3 签名器
+scripts/repack_manifest.py              已弃用，见上文「两个必须知道的坑」
 build.sh                                端到端构建
 ```
 
